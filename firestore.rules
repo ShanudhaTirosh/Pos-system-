@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ──────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+
+    function isAdminOrManager() {
+      return isAuthenticated() && (getUserData().role == 'Admin' || getUserData().role == 'Manager');
+    }
+
+    function isStaffOrAbove() {
+      return isAuthenticated() && getUserData().role in ['Admin', 'Manager', 'Staff'];
+    }
+
+    // ── Users Collection ──────────────────────────────────
+    match /users/{userId} {
+      // Users can read their own document; Admins can read all
+      allow read: if isOwner(userId) || isAdminOrManager();
+
+      // Users can create their own document on registration
+      allow create: if isOwner(userId) && request.resource.data.keys().hasAll(['email','displayName','role','createdAt']);
+
+      // Users can update their own document; restricted fields for non-admins
+      allow update: if isOwner(userId) ||
+                       (isAdminOrManager() && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['role','displayName','phone','updatedAt']));
+
+      // Only admins can delete user records
+      allow delete: if hasRole('Admin');
+    }
+
+    // ── Tables Collection ─────────────────────────────────
+    match /tables/{tableId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAdminOrManager();
+      allow update: if isStaffOrAbove();  // Staff can change status
+      allow delete: if isAdminOrManager();
+    }
+
+    // ── Menu Items Collection ─────────────────────────────
+    match /menu_items/{itemId} {
+      allow read:   if isAuthenticated();
+      allow write:  if isAdminOrManager();
+    }
+
+    // ── Categories Collection ─────────────────────────────
+    match /categories/{catId} {
+      allow read:   if isAuthenticated();
+      allow write:  if isAdminOrManager();
+    }
+
+    // ── Orders Collection ─────────────────────────────────
+    match /orders/{orderId} {
+      allow read:   if isAuthenticated();
+
+      // Staff can create orders
+      allow create: if isStaffOrAbove() &&
+                       request.resource.data.keys().hasAll(['type','status','items','createdAt','createdBy']) &&
+                       request.resource.data.createdBy == request.auth.uid;
+
+      // Staff can update status; admins can update anything
+      allow update: if isAdminOrManager() ||
+                       (isStaffOrAbove() && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status','cookingAt','readyAt','servedAt','paidAt']));
+
+      // Only admins can delete orders
+      allow delete: if hasRole('Admin');
+    }
+
+    // ── Bills Collection ──────────────────────────────────
+    match /bills/{billId} {
+      allow read:   if isAuthenticated();
+
+      // Staff and above can create bills
+      allow create: if isStaffOrAbove() &&
+                       request.resource.data.keys().hasAll(['orderId','total','status','createdAt','createdBy']);
+
+      // Only managers/admins can modify bills (e.g. refunds)
+      allow update: if isAdminOrManager();
+      allow delete: if hasRole('Admin');
+    }
+
+    // ── Layouts Collection ────────────────────────────────
+    match /layouts/{userId} {
+      // Users can only read/write their own layout
+      allow read, write: if isOwner(userId);
+    }
+
+    // ── Activity Log ──────────────────────────────────────
+    match /activity_log/{logId} {
+      // All authenticated users can read activity logs; admins see all
+      allow read: if isAdminOrManager() ||
+                     (isAuthenticated() && resource.data.uid == request.auth.uid);
+
+      // Any authenticated user can create activity logs for themselves
+      allow create: if isAuthenticated() &&
+                       request.resource.data.uid == request.auth.uid;
+
+      // Activity logs are immutable
+      allow update, delete: if false;
+    }
+  }
+}

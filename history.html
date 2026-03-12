@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Pro — History</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .hist-tab-btn { padding:8px 20px;border-radius:999px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-secondary);font-size:13px;font-weight:500;cursor:pointer;transition:var(--transition); }
+    .hist-tab-btn.active { background:var(--accent);color:#000;border-color:var(--accent);font-weight:600; }
+    .hist-panel { display: none; }
+    .hist-panel.active { display: block; animation: fadeIn 0.3s ease; }
+    .action-icon { display:inline-block;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0; }
+  </style>
+</head>
+<body>
+<div class="loading-overlay" id="pageLoader"><div style="text-align:center"><div class="spinner-amber" style="margin:0 auto 16px"></div></div></div>
+<div class="app-shell">
+  <nav class="sidebar" id="appSidebar"></nav>
+  <div class="main-area">
+    <div class="topbar" id="appTopbar"></div>
+    <div class="page-content fade-in">
+
+      <div class="section-header mb-4">
+        <div>
+          <h2 class="section-title">History & Analytics</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin:0">View all historical records and activity logs</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input type="date" class="form-control-custom" id="dateFrom" style="max-width:160px">
+          <input type="date" class="form-control-custom" id="dateTo"   style="max-width:160px">
+          <button class="btn-accent" onclick="applyDateFilter()">Apply</button>
+          <button class="btn-ghost"  onclick="clearDateFilter()">Clear</button>
+        </div>
+      </div>
+
+      <!-- Summary Stats -->
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--accent-soft)">💰</div>
+            <div style="font-family:var(--font-display);font-size:24px;font-weight:700" id="totalRevenue">—</div>
+            <div class="stat-label">Total Revenue</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--info-soft)">🛒</div>
+            <div style="font-family:var(--font-display);font-size:24px;font-weight:700" id="totalOrders">—</div>
+            <div class="stat-label">Total Orders</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--success-soft)">💳</div>
+            <div style="font-family:var(--font-display);font-size:24px;font-weight:700" id="totalBills">—</div>
+            <div class="stat-label">Bills Issued</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--purple-soft)">📊</div>
+            <div style="font-family:var(--font-display);font-size:24px;font-weight:700" id="avgOrder">—</div>
+            <div class="stat-label">Avg Order Value</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Revenue Breakdown -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-4">
+          <div class="card-custom">
+            <div class="card-title mb-3">💳 Payment Methods</div>
+            <div id="paymentBreakdown">
+              <div style="color:var(--text-muted);font-size:13px">Loading…</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card-custom">
+            <div class="card-title mb-3">🛒 Order Types</div>
+            <div id="orderTypeBreakdown">
+              <div style="color:var(--text-muted);font-size:13px">Loading…</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card-custom">
+            <div class="card-title mb-3">🍕 Top Items</div>
+            <div id="topItemsBreakdown">
+              <div style="color:var(--text-muted);font-size:13px">Loading…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="hist-tab-btn active" id="htab-orders"   onclick="switchHistTab('orders',this)">🛒 Order History</button>
+        <button class="hist-tab-btn"        id="htab-bills"    onclick="switchHistTab('bills',this)">💳 Payment History</button>
+        <button class="hist-tab-btn"        id="htab-activity" onclick="switchHistTab('activity',this)">📋 Activity Log</button>
+      </div>
+
+      <!-- ORDER HISTORY -->
+      <div class="hist-panel active" id="hist-orders">
+        <div class="card-custom" style="padding:0;overflow:hidden">
+          <div style="padding:14px 20px;border-bottom:1px solid var(--border-color);background:var(--bg-tertiary);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <div class="card-title">All Orders</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <input type="text" class="form-control-custom" id="orderSearch" placeholder="🔍 Search…" style="max-width:180px" oninput="filterOrders()">
+              <select class="form-control-custom" id="orderStatusFilter" style="max-width:140px" onchange="filterOrders()">
+                <option value="">All Status</option>
+                <option>Pending</option><option>Cooking</option><option>Ready</option>
+                <option>Served</option><option>Paid</option><option>Cancelled</option>
+              </select>
+              <select class="form-control-custom" id="orderTypeFilter" style="max-width:150px" onchange="filterOrders()">
+                <option value="">All Types</option>
+                <option>Table Order</option><option>Takeaway</option><option>Pre-order</option>
+              </select>
+              <button class="btn-ghost" onclick="exportOrders()">📥 CSV</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="table-custom">
+              <thead>
+                <tr>
+                  <th>Order #</th><th>Type</th><th>Table</th><th>Items</th>
+                  <th>Total</th><th>Status</th><th>Created</th>
+                </tr>
+              </thead>
+              <tbody id="orderHistoryBody">
+                <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAYMENT HISTORY -->
+      <div class="hist-panel" id="hist-bills">
+        <div class="card-custom" style="padding:0;overflow:hidden">
+          <div style="padding:14px 20px;border-bottom:1px solid var(--border-color);background:var(--bg-tertiary);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <div class="card-title">Payment History</div>
+            <div style="display:flex;gap:8px">
+              <select class="form-control-custom" id="paymentMethodFilter" style="max-width:140px" onchange="filterBills()">
+                <option value="">All Methods</option>
+                <option>Cash</option><option>Card</option><option>UPI</option><option>Wallet</option>
+              </select>
+              <button class="btn-ghost" onclick="exportBills()">📥 CSV</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="table-custom">
+              <thead>
+                <tr><th>Bill #</th><th>Order #</th><th>Subtotal</th><th>Tax</th><th>Discount</th><th>Total</th><th>Method</th><th>Date</th></tr>
+              </thead>
+              <tbody id="billHistBody">
+                <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:32px">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVITY LOG -->
+      <div class="hist-panel" id="hist-activity">
+        <div class="card-custom">
+          <div class="section-header mb-3">
+            <span class="card-title">User Activity Log</span>
+            <input type="text" class="form-control-custom" id="activitySearch" placeholder="🔍 Filter…" style="max-width:200px" oninput="filterActivity()">
+          </div>
+          <div id="activityTimeline">
+            <div class="empty-state"><div class="empty-state-icon">📋</div><div>Loading…</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+
+let allOrders = [], allBills = [], allActivity = [];
+let filteredOrders = [], filteredBills = [], filteredActivity = [];
+let dateFrom = null, dateTo = null;
+
+requireAuth(user => {
+  document.getElementById('appSidebar').innerHTML = getSidebarHTML(user.uid);
+  document.getElementById('appTopbar').innerHTML  = getTopbarHTML('History', 'Analytics & full history');
+  setActiveNav();
+  loadSidebarUser(user);
+
+  // Default date range: last 30 days
+  const today = new Date();
+  const ago30 = new Date(today); ago30.setDate(ago30.getDate() - 30);
+  document.getElementById('dateFrom').value = ago30.toISOString().slice(0,10);
+  document.getElementById('dateTo').value   = today.toISOString().slice(0,10);
+
+  loadAllData();
+  document.getElementById('pageLoader').style.display = 'none';
+});
+
+function switchHistTab(tab, btn) {
+  ['orders','bills','activity'].forEach(t => {
+    document.getElementById(`hist-${t}`).classList.toggle('active', t === tab);
+    document.getElementById(`htab-${t}`).classList.toggle('active', t === tab);
+  });
+}
+
+async function loadAllData() {
+  const [orderSnap, billSnap, actSnap] = await Promise.all([
+    db.collection(Collections.ORDERS).orderBy('createdAt','desc').limit(500).get(),
+    db.collection(Collections.BILLS).orderBy('createdAt','desc').limit(500).get(),
+    db.collection(Collections.ACTIVITY).orderBy('createdAt','desc').limit(200).get(),
+  ]);
+
+  allOrders   = orderSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  allBills    = billSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  allActivity = actSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  applyDateFilter();
+}
+
+function applyDateFilter() {
+  const fromVal = document.getElementById('dateFrom').value;
+  const toVal   = document.getElementById('dateTo').value;
+  dateFrom = fromVal ? new Date(fromVal + 'T00:00:00') : null;
+  dateTo   = toVal   ? new Date(toVal   + 'T23:59:59') : null;
+
+  filteredOrders   = filterByDate(allOrders,   'createdAt');
+  filteredBills    = filterByDate(allBills,     'createdAt');
+  filteredActivity = filterByDate(allActivity,  'createdAt');
+
+  computeStats();
+  computeBreakdowns();
+  filterOrders();
+  filterBills();
+  filterActivity();
+}
+
+function clearDateFilter() {
+  document.getElementById('dateFrom').value = '';
+  document.getElementById('dateTo').value   = '';
+  dateFrom = null; dateTo = null;
+  filteredOrders   = [...allOrders];
+  filteredBills    = [...allBills];
+  filteredActivity = [...allActivity];
+  computeStats();
+  computeBreakdowns();
+  filterOrders();
+  filterBills();
+  filterActivity();
+}
+
+function filterByDate(arr, field) {
+  if (!dateFrom && !dateTo) return arr;
+  return arr.filter(item => {
+    const d = item[field]?.toDate ? item[field].toDate() : null;
+    if (!d) return true;
+    if (dateFrom && d < dateFrom) return false;
+    if (dateTo   && d > dateTo)   return false;
+    return true;
+  });
+}
+
+function computeStats() {
+  const paidBills = filteredBills.filter(b => b.status === 'Paid');
+  const revenue   = paidBills.reduce((s,b) => s + (b.total||0), 0);
+  const avg       = paidBills.length ? revenue / paidBills.length : 0;
+
+  document.getElementById('totalRevenue').textContent = '$' + revenue.toFixed(0);
+  document.getElementById('totalOrders').textContent  = filteredOrders.length;
+  document.getElementById('totalBills').textContent   = filteredBills.length;
+  document.getElementById('avgOrder').textContent     = '$' + avg.toFixed(2);
+}
+
+function computeBreakdowns() {
+  // Payment methods
+  const pmCounts = {};
+  const pmRevenue = {};
+  filteredBills.forEach(b => {
+    const m = b.paymentMethod || 'Unknown';
+    pmCounts[m]  = (pmCounts[m]  || 0) + 1;
+    pmRevenue[m] = (pmRevenue[m] || 0) + (b.total || 0);
+  });
+  const pmTotal = Object.values(pmRevenue).reduce((s,v) => s+v, 0) || 1;
+  document.getElementById('paymentBreakdown').innerHTML = Object.entries(pmRevenue)
+    .sort((a,b) => b[1]-a[1])
+    .map(([m,v]) => `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span>${m}</span><span class="mono" style="color:var(--accent)">$${v.toFixed(0)}</span>
+        </div>
+        <div style="height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:var(--accent);border-radius:3px;width:${(v/pmTotal*100).toFixed(1)}%;transition:width 0.5s"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${pmCounts[m]} transactions</div>
+      </div>`).join('') || '<div style="color:var(--text-muted);font-size:13px">No data</div>';
+
+  // Order types
+  const otCounts = {};
+  filteredOrders.forEach(o => {
+    const t = o.type || 'Unknown';
+    otCounts[t] = (otCounts[t] || 0) + 1;
+  });
+  const otTotal = Object.values(otCounts).reduce((s,v) => s+v, 0) || 1;
+  document.getElementById('orderTypeBreakdown').innerHTML = Object.entries(otCounts)
+    .sort((a,b) => b[1]-a[1])
+    .map(([t,c]) => `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span>${t}</span><span class="mono">${c}</span>
+        </div>
+        <div style="height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:var(--info);border-radius:3px;width:${(c/otTotal*100).toFixed(1)}%"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted)">${(c/otTotal*100).toFixed(1)}%</div>
+      </div>`).join('') || '<div style="color:var(--text-muted);font-size:13px">No data</div>';
+
+  // Top items
+  const itemCounts = {};
+  filteredOrders.forEach(o => {
+    (o.items||[]).forEach(i => {
+      itemCounts[i.name] = (itemCounts[i.name] || 0) + i.qty;
+    });
+  });
+  const topItems = Object.entries(itemCounts).sort((a,b) => b[1]-a[1]).slice(0,6);
+  const maxItem  = topItems[0]?.[1] || 1;
+  document.getElementById('topItemsBreakdown').innerHTML = topItems.map(([name,qty]) => `
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px">${name}</span>
+        <span class="mono" style="color:var(--purple)">${qty}x</span>
+      </div>
+      <div style="height:5px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden">
+        <div style="height:100%;background:var(--purple);border-radius:3px;width:${(qty/maxItem*100).toFixed(1)}%"></div>
+      </div>
+    </div>`).join('') || '<div style="color:var(--text-muted);font-size:13px">No data</div>';
+}
+
+function filterOrders() {
+  const search  = (document.getElementById('orderSearch')?.value  || '').toLowerCase();
+  const status  = document.getElementById('orderStatusFilter')?.value || '';
+  const type    = document.getElementById('orderTypeFilter')?.value   || '';
+  let orders    = [...filteredOrders];
+  if (status)  orders = orders.filter(o => o.status === status);
+  if (type)    orders = orders.filter(o => o.type   === type);
+  if (search)  orders = orders.filter(o =>
+    fmt.orderId(o.id).toLowerCase().includes(search) ||
+    String(o.tableNumber||'').includes(search) ||
+    (o.customerName||'').toLowerCase().includes(search)
+  );
+  renderOrderHistory(orders);
+}
+
+function renderOrderHistory(orders) {
+  const tbody = document.getElementById('orderHistoryBody');
+  if (!orders.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px">No orders found</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = orders.slice(0,100).map(o => `
+    <tr>
+      <td class="mono">${fmt.orderId(o.id)}</td>
+      <td>${statusChip(o.type||'—')}</td>
+      <td>${o.tableNumber ? `#${o.tableNumber}` : '<span style="color:var(--text-muted)">—</span>'}</td>
+      <td style="color:var(--text-muted)">${(o.items||[]).reduce((s,i) => s+i.qty, 0)} items</td>
+      <td class="mono" style="color:var(--accent);font-weight:600">$${(o.total||0).toFixed(2)}</td>
+      <td>${statusChip(o.status||'—')}</td>
+      <td style="color:var(--text-muted)">${fmt.datetime(o.createdAt)}</td>
+    </tr>`).join('');
+  if (orders.length > 100) {
+    tbody.innerHTML += `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:12px;font-size:12px">
+      Showing first 100 of ${orders.length} orders</td></tr>`;
+  }
+}
+
+function filterBills() {
+  const method = document.getElementById('paymentMethodFilter')?.value || '';
+  let bills    = [...filteredBills];
+  if (method)  bills = bills.filter(b => b.paymentMethod === method);
+
+  const tbody = document.getElementById('billHistBody');
+  if (!bills.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:32px">No bills found</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = bills.slice(0,100).map(b => `
+    <tr>
+      <td class="mono">${fmt.orderId(b.id)}</td>
+      <td class="mono">${fmt.orderId(b.orderId)}</td>
+      <td class="mono">$${(b.subtotal||0).toFixed(2)}</td>
+      <td class="mono">$${(b.tax||0).toFixed(2)}</td>
+      <td class="mono" style="color:var(--success)">-$${(b.discount||0).toFixed(2)}</td>
+      <td class="mono" style="color:var(--accent);font-weight:700">$${(b.total||0).toFixed(2)}</td>
+      <td><span class="chip chip-info">${b.paymentMethod||'—'}</span></td>
+      <td style="color:var(--text-muted)">${fmt.datetime(b.createdAt)}</td>
+    </tr>`).join('');
+}
+
+function filterActivity() {
+  const search = (document.getElementById('activitySearch')?.value || '').toLowerCase();
+  let acts = [...filteredActivity];
+  if (search) acts = acts.filter(a =>
+    (a.action||'').toLowerCase().includes(search) ||
+    JSON.stringify(a.details||{}).toLowerCase().includes(search)
+  );
+  renderActivity(acts);
+}
+
+function renderActivity(acts) {
+  const container = document.getElementById('activityTimeline');
+  if (!acts.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><div>No activity found</div></div>`;
+    return;
+  }
+  const actionConfig = {
+    order_placed:          { icon:'🛒', color:'var(--success)',  label:'Order Placed' },
+    order_status_changed:  { icon:'🔄', color:'var(--info)',     label:'Order Updated' },
+    order_advanced:        { icon:'⬆️', color:'var(--info)',     label:'Order Advanced' },
+    bill_paid:             { icon:'💳', color:'var(--accent)',   label:'Bill Paid' },
+    table_added:           { icon:'🪑', color:'var(--purple)',   label:'Table Added' },
+    table_deleted:         { icon:'🗑️', color:'var(--danger)',   label:'Table Deleted' },
+    table_status_changed:  { icon:'🔄', color:'var(--warning)',  label:'Table Status' },
+    menu_item_added:       { icon:'🍕', color:'var(--success)',  label:'Menu Item Added' },
+    menu_item_deleted:     { icon:'🗑️', color:'var(--danger)',   label:'Menu Item Deleted' },
+    layout_saved:          { icon:'💾', color:'var(--purple)',   label:'Layout Saved' },
+    profile_updated:       { icon:'👤', color:'var(--info)',     label:'Profile Updated' },
+  };
+
+  container.innerHTML = acts.slice(0,100).map(act => {
+    const cfg = actionConfig[act.action] || { icon:'📝', color:'var(--text-muted)', label: act.action };
+    const details = Object.entries(act.details||{})
+      .filter(([k]) => !['uid'].includes(k))
+      .map(([k,v]) => `<span class="mono" style="font-size:11px;color:var(--text-muted)">${k}: ${v}</span>`)
+      .join('  ');
+
+    return `
+      <div class="timeline-item">
+        <div style="width:32px;height:32px;border-radius:50%;background:${cfg.color}22;border:1px solid ${cfg.color};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+          ${cfg.icon}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+            <div>
+              <div class="timeline-text" style="font-weight:600">${cfg.label}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px">${details}</div>
+            </div>
+            <div class="timeline-time">${fmt.datetime(act.createdAt)}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function exportOrders() {
+  const rows = [['Order #','Type','Table','Items','Subtotal','Tax','Total','Status','Created']];
+  filteredOrders.forEach(o => rows.push([
+    fmt.orderId(o.id), o.type, o.tableNumber||'',
+    (o.items||[]).reduce((s,i)=>s+i.qty,0),
+    (o.subtotal||0).toFixed(2), (o.tax||0).toFixed(2), (o.total||0).toFixed(2),
+    o.status, fmt.datetime(o.createdAt)
+  ]));
+  downloadCSV(rows, 'orders_history.csv');
+}
+
+function exportBills() {
+  const rows = [['Bill #','Order #','Subtotal','Tax','Discount','Total','Method','Date']];
+  filteredBills.forEach(b => rows.push([
+    fmt.orderId(b.id), fmt.orderId(b.orderId),
+    (b.subtotal||0).toFixed(2),(b.tax||0).toFixed(2),(b.discount||0).toFixed(2),(b.total||0).toFixed(2),
+    b.paymentMethod, fmt.datetime(b.createdAt)
+  ]));
+  downloadCSV(rows, 'bills_history.csv');
+}
+
+function downloadCSV(rows, filename) {
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = filename;
+  a.click();
+  Toast.success('Exported!');
+}
+</script>
+</body>
+</html>

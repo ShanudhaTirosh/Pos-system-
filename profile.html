@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Pro — Profile</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .pref-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 0; border-bottom: 1px solid var(--border-subtle);
+    }
+    .pref-toggle:last-child { border: none; }
+    .pref-label { font-size: 13.5px; font-weight: 500; }
+    .pref-desc  { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+    .toggle-sw  {
+      width: 44px; height: 24px; border-radius: 999px;
+      background: var(--bg-tertiary); border: 1px solid var(--border-color);
+      cursor: pointer; position: relative; transition: var(--transition);
+      flex-shrink: 0;
+    }
+    .toggle-sw.on { background: var(--accent); border-color: var(--accent); }
+    .toggle-sw::after {
+      content: ''; width: 18px; height: 18px; border-radius: 50%;
+      background: #fff; position: absolute; top: 2px; left: 2px;
+      transition: transform 0.2s;
+    }
+    .toggle-sw.on::after { transform: translateX(20px); }
+    .danger-zone { border: 1px solid var(--danger); border-radius: var(--radius); padding: 20px; }
+  </style>
+</head>
+<body>
+<div class="loading-overlay" id="pageLoader"><div style="text-align:center"><div class="spinner-amber" style="margin:0 auto 16px"></div></div></div>
+<div class="app-shell">
+  <nav class="sidebar" id="appSidebar"></nav>
+  <div class="main-area">
+    <div class="topbar" id="appTopbar"></div>
+    <div class="page-content fade-in">
+
+      <div class="section-header mb-4">
+        <h2 class="section-title">My Profile</h2>
+      </div>
+
+      <div class="row g-4">
+
+        <!-- Left Column -->
+        <div class="col-lg-4">
+
+          <!-- Avatar Card -->
+          <div class="card-custom text-center mb-4">
+            <div class="profile-avatar-wrap">
+              <div class="profile-avatar-large" id="profileAvatar">?</div>
+              <label class="avatar-upload-btn" for="avatarInput" title="Upload photo">📷</label>
+              <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
+            </div>
+            <h3 style="font-family:var(--font-display);font-size:20px;margin-bottom:4px" id="profileName">—</h3>
+            <div style="color:var(--text-muted);font-size:13px" id="profileEmail">—</div>
+            <div style="margin-top:8px" id="profileRole"></div>
+            <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-subtle)">
+              <div style="display:flex;justify-content:space-around">
+                <div style="text-align:center">
+                  <div style="font-family:var(--font-display);font-size:20px;font-weight:700" id="statMyOrders">—</div>
+                  <div style="font-size:11px;color:var(--text-muted)">Orders</div>
+                </div>
+                <div style="text-align:center">
+                  <div style="font-family:var(--font-display);font-size:20px;font-weight:700" id="statMyActivity">—</div>
+                  <div style="font-size:11px;color:var(--text-muted)">Actions</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preferences Card -->
+          <div class="card-custom">
+            <div class="card-title mb-3">⚙️ Preferences</div>
+
+            <div class="pref-toggle">
+              <div>
+                <div class="pref-label">Dark Mode</div>
+                <div class="pref-desc">Toggle light / dark theme</div>
+              </div>
+              <div class="toggle-sw" id="darkModeToggle" onclick="togglePref('darkMode',this)"></div>
+            </div>
+
+            <div class="pref-toggle">
+              <div>
+                <div class="pref-label">Sound Alerts</div>
+                <div class="pref-desc">Play sound for new orders</div>
+              </div>
+              <div class="toggle-sw" id="soundToggle" onclick="togglePref('sound',this)"></div>
+            </div>
+
+            <div class="pref-toggle">
+              <div>
+                <div class="pref-label">Desktop Notifications</div>
+                <div class="pref-desc">Browser push notifications</div>
+              </div>
+              <div class="toggle-sw" id="notifToggle" onclick="togglePref('notifications',this)"></div>
+            </div>
+
+            <div style="margin-top:16px">
+              <label class="form-label-custom">Currency Symbol</label>
+              <select class="form-control-custom" id="currencyPref" onchange="savePref('currency', this.value)">
+                <option value="$">$ — USD</option>
+                <option value="€">€ — EUR</option>
+                <option value="£">£ — GBP</option>
+                <option value="₹">₹ — INR</option>
+                <option value="¥">¥ — JPY</option>
+                <option value="฿">฿ — THB</option>
+              </select>
+            </div>
+
+            <div style="margin-top:12px">
+              <label class="form-label-custom">Tax Rate (%)</label>
+              <input type="number" class="form-control-custom" id="taxRatePref" placeholder="8" min="0" max="50" step="0.1"
+                onchange="savePref('taxRate', this.value)">
+            </div>
+
+            <div style="margin-top:12px">
+              <label class="form-label-custom">Restaurant Name</label>
+              <input type="text" class="form-control-custom" id="restaurantNamePref" placeholder="My Restaurant"
+                onchange="savePref('restaurantName', this.value)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-lg-8">
+
+          <!-- Edit Profile -->
+          <div class="card-custom mb-4">
+            <div class="card-title mb-4">✏️ Edit Profile</div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label-custom">Display Name</label>
+                <input type="text" class="form-control-custom" id="editName" placeholder="Your full name">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label-custom">Phone Number</label>
+                <input type="tel" class="form-control-custom" id="editPhone" placeholder="+1 (555) 000-0000">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label-custom">Email Address</label>
+                <input type="email" class="form-control-custom" id="editEmail" placeholder="you@example.com">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label-custom">Role</label>
+                <select class="form-control-custom" id="editRole">
+                  <option value="Admin">Admin</option>
+                  <option value="Manager">Manager</option>
+                  <option value="Staff">Staff</option>
+                  <option value="Kitchen">Kitchen</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label-custom">Bio / Notes</label>
+                <textarea class="form-control-custom" id="editBio" rows="2" placeholder="Short bio…" style="resize:vertical"></textarea>
+              </div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:8px">
+              <button class="btn-accent" onclick="saveProfile()">💾 Save Profile</button>
+              <button class="btn-ghost"  onclick="loadProfile()">↺ Reset</button>
+            </div>
+          </div>
+
+          <!-- Change Password -->
+          <div class="card-custom mb-4">
+            <div class="card-title mb-4">🔐 Change Password</div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label-custom">New Password</label>
+                <input type="password" class="form-control-custom" id="newPassword" placeholder="Min. 6 characters">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label-custom">Confirm Password</label>
+                <input type="password" class="form-control-custom" id="confirmPassword" placeholder="Repeat password">
+              </div>
+            </div>
+            <div style="margin-top:16px">
+              <button class="btn-ghost" onclick="changePassword()">🔑 Update Password</button>
+            </div>
+          </div>
+
+          <!-- Recent Activity -->
+          <div class="card-custom mb-4">
+            <div class="card-title mb-3">📋 My Recent Activity</div>
+            <div id="myActivityList">
+              <div class="empty-state"><div class="empty-state-icon">📋</div><div>Loading…</div></div>
+            </div>
+          </div>
+
+          <!-- Danger Zone -->
+          <div class="danger-zone">
+            <div style="font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--danger);margin-bottom:8px">⚠️ Danger Zone</div>
+            <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">These actions are permanent and cannot be undone.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn-danger" onclick="clearMyLayouts()">🗑️ Reset My Dashboard Layout</button>
+              <button class="btn-danger" onclick="signOutAll()">🚪 Sign Out</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+
+let currentUser, userPrefs = {};
+
+requireAuth(async user => {
+  currentUser = user;
+  document.getElementById('appSidebar').innerHTML = getSidebarHTML(user.uid);
+  document.getElementById('appTopbar').innerHTML  = getTopbarHTML('Profile', 'Manage your account');
+  setActiveNav();
+  loadSidebarUser(user);
+  await loadProfile();
+  await loadMyStats();
+  await loadMyActivity();
+  document.getElementById('pageLoader').style.display = 'none';
+});
+
+async function loadProfile() {
+  try {
+    const doc  = await db.collection(Collections.USERS).doc(currentUser.uid).get();
+    const data = doc.data() || {};
+
+    document.getElementById('editName').value  = data.displayName  || currentUser.displayName || '';
+    document.getElementById('editEmail').value = data.email        || currentUser.email        || '';
+    document.getElementById('editPhone').value = data.phone        || '';
+    document.getElementById('editRole').value  = data.role         || 'Staff';
+    document.getElementById('editBio').value   = data.bio          || '';
+
+    // Header info
+    document.getElementById('profileName').textContent  = data.displayName || currentUser.displayName || 'User';
+    document.getElementById('profileEmail').textContent = data.email || currentUser.email;
+    document.getElementById('profileRole').innerHTML    = statusChip(data.role || 'Staff');
+
+    // Avatar
+    const avatarEl = document.getElementById('profileAvatar');
+    if (data.photoURL) {
+      avatarEl.innerHTML = `<img src="${data.photoURL}" style="width:100%;height:100%;object-fit:cover">`;
+    } else {
+      const initials = (data.displayName || currentUser.email || '?').charAt(0).toUpperCase();
+      avatarEl.textContent = initials;
+    }
+
+    // Preferences
+    userPrefs = data.preferences || {};
+    applyPreferencesUI(userPrefs);
+
+  } catch (e) {
+    Toast.error('Failed to load profile: ' + e.message);
+  }
+}
+
+function applyPreferencesUI(prefs) {
+  setToggle('darkModeToggle',   prefs.theme === 'dark' || !prefs.theme);
+  setToggle('soundToggle',      !!prefs.sound);
+  setToggle('notifToggle',      !!prefs.notifications);
+
+  const curr = document.getElementById('currencyPref');
+  if (curr && prefs.currency) curr.value = prefs.currency;
+
+  const tax = document.getElementById('taxRatePref');
+  if (tax  && prefs.taxRate)   tax.value  = prefs.taxRate;
+
+  const restName = document.getElementById('restaurantNamePref');
+  if (restName && prefs.restaurantName) restName.value = prefs.restaurantName;
+
+  ThemeManager.load(prefs.theme);
+}
+
+function setToggle(id, on) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('on', on);
+}
+
+async function togglePref(key, el) {
+  el.classList.toggle('on');
+  const on = el.classList.contains('on');
+
+  if (key === 'darkMode') {
+    ThemeManager.set(on ? 'dark' : 'light');
+    userPrefs.theme = on ? 'dark' : 'light';
+  } else {
+    userPrefs[key] = on;
+    if (key === 'notifications' && on && Notification.permission !== 'granted') {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { el.classList.remove('on'); userPrefs.notifications = false; }
+    }
+  }
+
+  await savePrefToFirestore();
+}
+
+async function savePref(key, value) {
+  userPrefs[key] = value;
+  await savePrefToFirestore();
+}
+
+async function savePrefToFirestore() {
+  try {
+    await db.collection(Collections.USERS).doc(currentUser.uid).update({
+      preferences: userPrefs,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (e) {}
+}
+
+async function saveProfile() {
+  const name  = document.getElementById('editName').value.trim();
+  const email = document.getElementById('editEmail').value.trim();
+  const phone = document.getElementById('editPhone').value.trim();
+  const role  = document.getElementById('editRole').value;
+  const bio   = document.getElementById('editBio').value.trim();
+
+  if (!name)  { Toast.warning('Name is required.'); return; }
+  if (!email) { Toast.warning('Email is required.'); return; }
+
+  try {
+    // Update Firebase Auth display name
+    await currentUser.updateProfile({ displayName: name });
+
+    // Update email if changed
+    if (email !== currentUser.email) {
+      await currentUser.updateEmail(email);
+    }
+
+    // Update Firestore
+    await db.collection(Collections.USERS).doc(currentUser.uid).update({
+      displayName: name, email, phone, role, bio,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    await logActivity('profile_updated', { name, role });
+    Toast.success('Profile saved!');
+
+    // Refresh sidebar
+    loadSidebarUser(currentUser);
+    document.getElementById('profileName').textContent  = name;
+    document.getElementById('profileEmail').textContent = email;
+    document.getElementById('profileRole').innerHTML    = statusChip(role);
+
+  } catch (e) {
+    const msgs = {
+      'auth/requires-recent-login': 'Please sign out and back in to change email.',
+      'auth/email-already-in-use':  'That email is already in use.',
+      'auth/invalid-email':         'Invalid email format.',
+    };
+    Toast.error(msgs[e.code] || e.message);
+  }
+}
+
+async function changePassword() {
+  const np = document.getElementById('newPassword').value;
+  const cp = document.getElementById('confirmPassword').value;
+
+  if (!np)        { Toast.warning('Enter a new password.'); return; }
+  if (np.length < 6) { Toast.warning('Password must be at least 6 characters.'); return; }
+  if (np !== cp)  { Toast.warning('Passwords do not match.'); return; }
+
+  try {
+    await currentUser.updatePassword(np);
+    document.getElementById('newPassword').value    = '';
+    document.getElementById('confirmPassword').value = '';
+    Toast.success('Password updated!');
+  } catch (e) {
+    const msgs = {
+      'auth/requires-recent-login': 'Please sign out and back in to change password.',
+      'auth/weak-password':         'Password is too weak.',
+    };
+    Toast.error(msgs[e.code] || e.message);
+  }
+}
+
+async function uploadAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  if (file.size > 5 * 1024 * 1024) { Toast.warning('Image must be under 5MB.'); return; }
+
+  const avatarEl = document.getElementById('profileAvatar');
+  avatarEl.innerHTML = `<div class="spinner-amber" style="width:40px;height:40px;margin:auto"></div>`;
+
+  try {
+    const ref = storage.ref(`avatars/${currentUser.uid}/${Date.now()}_${file.name}`);
+    await ref.put(file);
+    const url = await ref.getDownloadURL();
+
+    await currentUser.updateProfile({ photoURL: url });
+    await db.collection(Collections.USERS).doc(currentUser.uid).update({ photoURL: url });
+
+    avatarEl.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover">`;
+
+    // Update sidebar avatar
+    const sidebarAv = document.getElementById('sidebarAvatar');
+    if (sidebarAv) sidebarAv.innerHTML = `<img src="${url}" alt="avatar">`;
+
+    Toast.success('Avatar updated!');
+    await logActivity('profile_updated', { field: 'avatar' });
+  } catch (e) {
+    Toast.error('Upload failed: ' + e.message);
+    const initials = currentUser.displayName?.charAt(0) || '?';
+    avatarEl.textContent = initials.toUpperCase();
+  }
+}
+
+async function loadMyStats() {
+  try {
+    const [orderSnap, actSnap] = await Promise.all([
+      db.collection(Collections.ORDERS).where('createdBy','==',currentUser.uid).get(),
+      db.collection(Collections.ACTIVITY).where('uid','==',currentUser.uid).get(),
+    ]);
+    document.getElementById('statMyOrders').textContent   = orderSnap.size;
+    document.getElementById('statMyActivity').textContent = actSnap.size;
+  } catch (e) {}
+}
+
+async function loadMyActivity() {
+  try {
+    const snap = await db.collection(Collections.ACTIVITY)
+      .where('uid','==',currentUser.uid)
+      .orderBy('createdAt','desc')
+      .limit(10)
+      .get();
+
+    const container = document.getElementById('myActivityList');
+    if (snap.empty) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><div>No activity yet</div></div>`;
+      return;
+    }
+
+    const labels = {
+      order_placed:'Order Placed', order_status_changed:'Order Updated',
+      bill_paid:'Bill Paid', table_added:'Table Added', table_deleted:'Table Deleted',
+      menu_item_added:'Item Added', menu_item_deleted:'Item Deleted',
+      layout_saved:'Layout Saved', profile_updated:'Profile Updated',
+    };
+
+    container.innerHTML = snap.docs.map(doc => {
+      const d   = doc.data();
+      const lbl = labels[d.action] || d.action;
+      return `
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background:var(--accent)"></div>
+          <div style="flex:1">
+            <div class="timeline-text">${lbl}</div>
+            <div class="timeline-time">${fmt.datetime(d.createdAt)}</div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) {}
+}
+
+async function clearMyLayouts() {
+  if (!confirm('Reset your dashboard layout to default?')) return;
+  try {
+    await db.collection(Collections.LAYOUTS).doc(currentUser.uid).delete();
+    Toast.success('Dashboard layout reset!');
+  } catch (e) { Toast.error(e.message); }
+}
+
+function signOutAll() {
+  if (!confirm('Sign out of Restaurant Pro?')) return;
+  auth.signOut().then(() => window.location.href = 'index.html');
+}
+</script>
+</body>
+</html>

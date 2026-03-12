@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Pro — Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .grid-stack { background: transparent; min-height: 600px; }
+    .grid-stack-item-content { cursor: default; }
+    .widget-add-btn {
+      position: fixed; bottom: 28px; right: 28px;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: var(--accent); color: #000;
+      border: none; font-size: 24px; font-weight: 700;
+      cursor: pointer; box-shadow: 0 4px 20px var(--accent-glow);
+      transition: var(--transition); z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .widget-add-btn:hover { transform: scale(1.08) rotate(90deg); }
+    .revenue-bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 100px; padding: 8px 0; }
+    .rev-bar {
+      flex: 1; border-radius: 4px 4px 0 0;
+      background: var(--accent-soft);
+      position: relative; cursor: pointer; transition: var(--transition);
+      min-width: 0;
+    }
+    .rev-bar:hover { background: var(--accent); }
+    .rev-bar-label { font-size: 9px; text-align: center; color: var(--text-muted); margin-top: 4px; }
+    .widget-remove-btn {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 14px; padding: 2px 6px;
+      transition: var(--transition); border-radius: 4px;
+    }
+    .widget-remove-btn:hover { background: var(--danger-soft); color: var(--danger); }
+    .big-num { font-family: var(--font-display); font-size: 32px; font-weight: 700; color: var(--text-primary); }
+    .quick-stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+    @media(max-width:900px) { .quick-stat-row { grid-template-columns: repeat(2,1fr); } }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="pageLoader">
+  <div style="text-align:center">
+    <div class="spinner-amber" style="margin:0 auto 16px"></div>
+    <div style="font-family:var(--font-display);color:var(--text-secondary)">Loading Dashboard…</div>
+  </div>
+</div>
+
+<div class="app-shell">
+  <!-- Sidebar -->
+  <nav class="sidebar" id="appSidebar"></nav>
+
+  <!-- Main -->
+  <div class="main-area">
+    <div class="topbar" id="appTopbar"></div>
+    <div class="page-content fade-in">
+
+      <!-- Stats Row -->
+      <div class="quick-stat-row mb-4" id="statsRow">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--accent-soft)">💰</div>
+          <div class="big-num" id="statRevenue">—</div>
+          <div class="stat-label">Today's Revenue</div>
+          <div class="stat-change up" id="statRevenueChange">Loading…</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--info-soft)">🛒</div>
+          <div class="big-num" id="statOrders">—</div>
+          <div class="stat-label">Active Orders</div>
+          <div class="stat-change up" id="statOrdersChange">Loading…</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--success-soft)">🪑</div>
+          <div class="big-num" id="statOccupied">—</div>
+          <div class="stat-label">Tables Occupied</div>
+          <div class="stat-change" id="statTablesChange">Loading…</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--purple-soft)">🍕</div>
+          <div class="big-num" id="statMenuItems">—</div>
+          <div class="stat-label">Menu Items</div>
+          <div class="stat-change" id="statMenuChange">Active items</div>
+        </div>
+      </div>
+
+      <!-- Widget Controls -->
+      <div class="section-header mb-3">
+        <h2 class="section-title">Dashboard Widgets</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn-ghost" onclick="resetLayout()" style="font-size:12px;padding:6px 14px">↺ Reset</button>
+          <button class="btn-accent" onclick="saveLayout()" style="font-size:12px;padding:6px 14px">💾 Save Layout</button>
+        </div>
+      </div>
+
+      <!-- GridStack Dashboard -->
+      <div class="grid-stack" id="dashGrid"></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add Widget Modal -->
+<div class="modal modal-custom fade" id="addWidgetModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Widget</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3" id="widgetPicker"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js"></script>
+<script>
+
+let grid;
+let currentUser;
+
+// ─── Widget Definitions ───────────────────────────────────
+const WIDGET_TYPES = {
+  revenue_chart: {
+    label: 'Revenue Chart', icon: '📈', w: 6, h: 4,
+    render: (id) => `
+      <div class="widget-header">
+        <span class="widget-title">📈 Revenue (7 Days)</span>
+        <button class="widget-remove-btn" onclick="removeWidget('${id}')">✕</button>
+      </div>
+      <div class="widget-body">
+        <div class="revenue-bar-chart" id="revenueChart_${id}">
+          <div style="color:var(--text-muted);font-size:13px">Loading…</div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Last 7 days daily revenue</div>
+      </div>`
+  },
+  orders_live: {
+    label: 'Live Orders', icon: '🛒', w: 6, h: 4,
+    render: (id) => `
+      <div class="widget-header">
+        <span class="widget-title">🛒 Live Orders</span>
+        <button class="widget-remove-btn" onclick="removeWidget('${id}')">✕</button>
+      </div>
+      <div class="widget-body" style="padding:0">
+        <div id="liveOrders_${id}" style="overflow:auto;height:calc(100% - 0px)">
+          <div class="empty-state"><div class="empty-state-icon">🛒</div><div>Loading…</div></div>
+        </div>
+      </div>`
+  },
+  kitchen_status: {
+    label: 'Kitchen Status', icon: '👨‍🍳', w: 4, h: 4,
+    render: (id) => `
+      <div class="widget-header">
+        <span class="widget-title">👨‍🍳 Kitchen Status</span>
+        <button class="widget-remove-btn" onclick="removeWidget('${id}')">✕</button>
+      </div>
+      <div class="widget-body" style="padding:12px;overflow:auto">
+        <div id="kitchenWidget_${id}">Loading…</div>
+      </div>`
+  },
+  tables_overview: {
+    label: 'Tables Overview', icon: '🪑', w: 4, h: 4,
+    render: (id) => `
+      <div class="widget-header">
+        <span class="widget-title">🪑 Tables</span>
+        <button class="widget-remove-btn" onclick="removeWidget('${id}')">✕</button>
+      </div>
+      <div class="widget-body" style="padding:12px">
+        <div id="tablesWidget_${id}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:8px">
+          <div style="color:var(--text-muted);font-size:13px;grid-column:1/-1">Loading…</div>
+        </div>
+      </div>`
+  },
+  menu_stats: {
+    label: 'Menu Stats', icon: '🍕', w: 4, h: 3,
+    render: (id) => `
+      <div class="widget-header">
+        <span class="widget-title">🍕 Menu Overview</span>
+        <button class="widget-remove-btn" onclick="removeWidget('${id}')">✕</button>
+      </div>
+      <div class="widget-body" id="menuWidget_${id}">Loading…</div>`
+  },
+  quick_actions: {
+    label: 'Quick Actions', icon: '⚡', w: 3, h: 3,
+    render: (id) => `
+      <div class="widget-header">
+        <span class="widget-title">⚡ Quick Actions</span>
+        <button class="widget-remove-btn" onclick="removeWidget('${id}')">✕</button>
+      </div>
+      <div class="widget-body" style="display:flex;flex-direction:column;gap:8px">
+        <a href="orders.html" class="btn-accent justify-content-center" style="width:100%;text-align:center">🛒 New Order</a>
+        <a href="tables.html" class="btn-ghost justify-content-center" style="width:100%;text-align:center">🪑 Manage Tables</a>
+        <a href="menu.html"   class="btn-ghost justify-content-center" style="width:100%;text-align:center">🍕 Edit Menu</a>
+        <a href="billing.html" class="btn-ghost justify-content-center" style="width:100%;text-align:center">💳 Billing</a>
+      </div>`
+  },
+  recent_bills: {
+    label: 'Recent Bills', icon: '💳', w: 5, h: 4,
+    render: (id) => `
+      <div class="widget-header">
+        <span class="widget-title">💳 Recent Bills</span>
+        <button class="widget-remove-btn" onclick="removeWidget('${id}')">✕</button>
+      </div>
+      <div class="widget-body" style="padding:0;overflow:auto">
+        <div id="recentBills_${id}">Loading…</div>
+      </div>`
+  },
+};
+
+const DEFAULT_LAYOUT = [
+  { id: 'w1', type: 'revenue_chart',   x:0,  y:0, w:6, h:4 },
+  { id: 'w2', type: 'orders_live',     x:6,  y:0, w:6, h:4 },
+  { id: 'w3', type: 'kitchen_status',  x:0,  y:4, w:4, h:4 },
+  { id: 'w4', type: 'tables_overview', x:4,  y:4, w:4, h:4 },
+  { id: 'w5', type: 'quick_actions',   x:8,  y:4, w:4, h:3 },
+  { id: 'w6', type: 'recent_bills',    x:0,  y:8, w:7, h:4 },
+  { id: 'w7', type: 'menu_stats',      x:7,  y:8, w:5, h:3 },
+];
+
+const listeners = {};
+
+requireAuth(user => {
+  currentUser = user;
+  document.getElementById('appSidebar').innerHTML = getSidebarHTML(user.uid);
+  document.getElementById('appTopbar').innerHTML = getTopbarHTML('Dashboard', `Good ${getGreeting()}, ${user.displayName || 'Chef'}!`);
+  setActiveNav();
+  loadSidebarUser(user);
+  initDashboard(user);
+  loadStats();
+  document.getElementById('pageLoader').style.display = 'none';
+});
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'morning';
+  if (h < 17) return 'afternoon';
+  return 'evening';
+}
+
+async function initDashboard(user) {
+  grid = GridStack.init({
+    cellHeight: 80,
+    margin: 12,
+    animate: true,
+    draggable: { handle: '.widget-header' },
+    resizable: { handles: 'se,sw,ne,nw,e,w,n,s' },
+  }, '#dashGrid');
+
+  grid.on('change', () => {/* auto-saves on button click */});
+
+  let layout = DEFAULT_LAYOUT;
+  try {
+    const doc = await db.collection(Collections.LAYOUTS).doc(user.uid).get();
+    if (doc.exists && doc.data().widgets) layout = doc.data().widgets;
+  } catch (e) {}
+
+  renderLayout(layout);
+  populateWidgetPicker();
+}
+
+function renderLayout(layout) {
+  grid.removeAll();
+  layout.forEach(w => {
+    if (!WIDGET_TYPES[w.type]) return;
+    const def = WIDGET_TYPES[w.type];
+    const html = def.render(w.id);
+    grid.addWidget({ x:w.x, y:w.y, w:w.w || def.w, h:w.h || def.h, id:w.id, content: html });
+    initWidgetData(w.id, w.type);
+  });
+}
+
+function populateWidgetPicker() {
+  const container = document.getElementById('widgetPicker');
+  container.innerHTML = Object.entries(WIDGET_TYPES).map(([type, def]) => `
+    <div class="col-6">
+      <button class="card-custom w-100 text-start" style="cursor:pointer;border:none" onclick="addWidget('${type}')">
+        <div style="font-size:28px;margin-bottom:8px">${def.icon}</div>
+        <div class="card-title" style="font-size:13px">${def.label}</div>
+      </button>
+    </div>`).join('');
+}
+
+function addWidget(type) {
+  bootstrap.Modal.getInstance(document.getElementById('addWidgetModal'))?.hide();
+  const def = WIDGET_TYPES[type];
+  if (!def) return;
+  const id = 'w_' + Date.now();
+  grid.addWidget({ w: def.w, h: def.h, id, content: def.render(id) });
+  initWidgetData(id, type);
+  Toast.success(`${def.label} widget added!`);
+}
+
+function removeWidget(id) {
+  const el = document.querySelector(`[gs-id="${id}"]`);
+  if (el) grid.removeWidget(el);
+  if (listeners[id]) { listeners[id](); delete listeners[id]; }
+}
+
+async function saveLayout() {
+  const items = grid.getGridItems().map(el => {
+    const node = el.gridstackNode;
+    const type = detectWidgetType(el);
+    return { id: node.id, type, x: node.x, y: node.y, w: node.w, h: node.h };
+  });
+  try {
+    await db.collection(Collections.LAYOUTS).doc(currentUser.uid).set({
+      widgets: items,
+      savedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await logActivity('layout_saved', { widgetCount: items.length });
+    Toast.success('Layout saved!');
+  } catch (e) {
+    Toast.error('Failed to save: ' + e.message);
+  }
+}
+
+function detectWidgetType(el) {
+  const content = el.querySelector('.widget-title')?.textContent || '';
+  const map = {
+    '📈': 'revenue_chart', '🛒': 'orders_live', '👨‍🍳': 'kitchen_status',
+    '🪑': 'tables_overview', '🍕': 'menu_stats', '⚡': 'quick_actions', '💳': 'recent_bills',
+  };
+  for (const [icon, type] of Object.entries(map)) {
+    if (content.includes(icon)) return type;
+  }
+  return 'unknown';
+}
+
+async function resetLayout() {
+  await db.collection(Collections.LAYOUTS).doc(currentUser.uid).delete();
+  Object.values(listeners).forEach(unsub => unsub());
+  renderLayout(DEFAULT_LAYOUT);
+  Toast.info('Layout reset to default.');
+}
+
+// ─── Widget Data Loaders ──────────────────────────────────
+
+function initWidgetData(id, type) {
+  switch (type) {
+    case 'revenue_chart':   loadRevenueChart(id);   break;
+    case 'orders_live':     loadLiveOrders(id);      break;
+    case 'kitchen_status':  loadKitchenWidget(id);   break;
+    case 'tables_overview': loadTablesWidget(id);    break;
+    case 'menu_stats':      loadMenuWidget(id);      break;
+    case 'recent_bills':    loadRecentBills(id);     break;
+  }
+}
+
+async function loadRevenueChart(id) {
+  const container = document.getElementById(`revenueChart_${id}`);
+  if (!container) return;
+  try {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      days.push(d);
+    }
+    const labels = days.map(d => d.toLocaleDateString('en', { weekday: 'short' }));
+    const bills = await db.collection(Collections.BILLS).where('paidAt', '>=', days[0]).get();
+    const daily = Array(7).fill(0);
+    bills.forEach(doc => {
+      const data = doc.data();
+      const d = data.paidAt?.toDate();
+      if (!d) return;
+      const idx = days.findIndex(day => day.toDateString() === d.toDateString());
+      if (idx >= 0) daily[idx] += data.total || 0;
+    });
+    const maxVal = Math.max(...daily, 1);
+    container.innerHTML = daily.map((v, i) => `
+      <div style="display:flex;flex-direction:column;align-items:center;flex:1">
+        <div class="rev-bar" style="height:${Math.max((v/maxVal)*90, 4)}px" title="$${v.toFixed(2)}"></div>
+        <div class="rev-bar-label">${labels[i]}</div>
+      </div>`).join('');
+  } catch (e) {
+    if (container) container.innerHTML = `<div style="color:var(--text-muted);font-size:12px">No data yet</div>`;
+  }
+}
+
+function loadLiveOrders(id) {
+  const container = document.getElementById(`liveOrders_${id}`);
+  if (!container) return;
+  const unsub = db.collection(Collections.ORDERS)
+    .where('status', 'in', ['Pending','Cooking','Ready'])
+    .orderBy('createdAt', 'desc')
+    .limit(8)
+    .onSnapshot(snap => {
+      if (snap.empty) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">✅</div><div>No active orders</div></div>`;
+        return;
+      }
+      container.innerHTML = snap.docs.map(doc => {
+        const d = doc.data();
+        const itemCount = (d.items || []).reduce((s,i) => s + i.qty, 0);
+        return `
+          <div class="order-item" onclick="window.location='orders.html'" style="cursor:pointer">
+            <div>
+              <div style="font-weight:600;font-size:13px">${fmt.orderId(doc.id)}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${d.type} · ${itemCount} items</div>
+            </div>
+            <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+              ${statusChip(d.status)}
+              <span style="font-family:var(--font-mono);font-size:12px;color:var(--accent)">$${(d.total||0).toFixed(2)}</span>
+            </div>
+          </div>`;
+      }).join('');
+    }, () => {
+      if (container) container.innerHTML = `<div class="empty-state"><div>Real-time error</div></div>`;
+    });
+  listeners[id] = unsub;
+}
+
+function loadKitchenWidget(id) {
+  const container = document.getElementById(`kitchenWidget_${id}`);
+  if (!container) return;
+  const statuses = ['Pending','Cooking','Ready'];
+  const unsub = db.collection(Collections.ORDERS)
+    .where('status', 'in', statuses)
+    .orderBy('createdAt', 'desc')
+    .limit(6)
+    .onSnapshot(snap => {
+      if (snap.empty) {
+        container.innerHTML = `<div class="empty-state" style="padding:24px"><div class="empty-state-icon">👨‍🍳</div><div>Kitchen is clear!</div></div>`;
+        return;
+      }
+      const statusColors = { Pending:'orange', Cooking:'info', Ready:'green' };
+      container.innerHTML = snap.docs.map(doc => {
+        const d = doc.data();
+        const cls = { Pending:'pending', Cooking:'cooking', Ready:'ready' }[d.status] || '';
+        const items = (d.items||[]).map(i=>`${i.name}×${i.qty}`).join(', ');
+        return `
+          <div class="kitchen-card ${cls} mb-2">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="kitchen-table">${d.type === 'Table Order' ? `Table ${d.tableNumber||'?'}` : d.type}</span>
+              ${statusChip(d.status)}
+            </div>
+            <div class="kitchen-items">${items || 'No items'}</div>
+            <div class="kitchen-time">${fmt.time(d.createdAt)}</div>
+          </div>`;
+      }).join('');
+    }, () => {});
+  listeners[id] = unsub;
+}
+
+function loadTablesWidget(id) {
+  const container = document.getElementById(`tablesWidget_${id}`);
+  if (!container) return;
+  const unsub = db.collection(Collections.TABLES)
+    .orderBy('number')
+    .limit(20)
+    .onSnapshot(snap => {
+      if (snap.empty) {
+        container.innerHTML = `<div style="color:var(--text-muted);font-size:12px;grid-column:1/-1">No tables yet</div>`;
+        return;
+      }
+      const colors = { Available:'var(--success)', Occupied:'var(--danger)', Reserved:'var(--warning)' };
+      container.innerHTML = snap.docs.map(doc => {
+        const d = doc.data();
+        return `
+          <div onclick="window.location='tables.html'" style="
+            text-align:center; padding:10px 6px;
+            border-radius:8px; cursor:pointer;
+            border: 2px solid ${colors[d.status]||'var(--border-color)'};
+            background: var(--bg-tertiary);
+            transition: var(--transition);">
+            <div style="font-weight:700;font-size:15px">${d.number}</div>
+            <div style="font-size:9px;color:var(--text-muted)">${d.status}</div>
+          </div>`;
+      }).join('');
+    }, () => {});
+  listeners[id] = unsub;
+}
+
+async function loadMenuWidget(id) {
+  const container = document.getElementById(`menuWidget_${id}`);
+  if (!container) return;
+  try {
+    const [items, cats] = await Promise.all([
+      db.collection(Collections.MENU_ITEMS).get(),
+      db.collection(Collections.CATEGORIES).get(),
+    ]);
+    const byCategory = {};
+    cats.forEach(c => byCategory[c.id] = { name: c.data().name, count: 0 });
+    items.forEach(i => {
+      if (byCategory[i.data().categoryId]) byCategory[i.data().categoryId].count++;
+    });
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:13px;color:var(--text-muted)">${items.size} items in ${cats.size} categories</div>
+        ${Object.values(byCategory).slice(0,5).map(c => `
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--border-subtle)">
+            <span>${c.name}</span>
+            <span class="mono" style="color:var(--accent)">${c.count}</span>
+          </div>`).join('')}
+        <a href="menu.html" style="font-size:12px;color:var(--accent);margin-top:4px">View full menu →</a>
+      </div>`;
+  } catch (e) {
+    if (container) container.innerHTML = `<div style="color:var(--text-muted);font-size:12px">No menu data</div>`;
+  }
+}
+
+function loadRecentBills(id) {
+  const container = document.getElementById(`recentBills_${id}`);
+  if (!container) return;
+  const unsub = db.collection(Collections.BILLS)
+    .orderBy('createdAt', 'desc')
+    .limit(8)
+    .onSnapshot(snap => {
+      if (snap.empty) {
+        container.innerHTML = `<div class="empty-state" style="padding:24px"><div class="empty-state-icon">💳</div><div>No bills yet</div></div>`;
+        return;
+      }
+      container.innerHTML = `
+        <table class="table-custom">
+          <thead><tr>
+            <th>Bill</th><th>Order</th><th>Total</th><th>Status</th><th>Time</th>
+          </tr></thead>
+          <tbody>${snap.docs.map(doc => {
+            const d = doc.data();
+            return `<tr>
+              <td class="mono">${fmt.orderId(doc.id)}</td>
+              <td class="mono">${fmt.orderId(d.orderId)}</td>
+              <td style="color:var(--accent);font-weight:600">$${(d.total||0).toFixed(2)}</td>
+              <td>${statusChip(d.status)}</td>
+              <td style="color:var(--text-muted)">${fmt.time(d.createdAt)}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>`;
+    }, () => {});
+  listeners[id] = unsub;
+}
+
+// ─── Top Stats Loaders ────────────────────────────────────
+function loadStats() {
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Revenue
+  db.collection(Collections.BILLS)
+    .where('paidAt', '>=', today)
+    .where('status', '==', 'Paid')
+    .onSnapshot(snap => {
+      let total = 0;
+      snap.forEach(d => total += d.data().total || 0);
+      document.getElementById('statRevenue').textContent = '$' + total.toFixed(0);
+      document.getElementById('statRevenueChange').textContent = `${snap.size} bills today`;
+    });
+
+  // Orders
+  db.collection(Collections.ORDERS)
+    .where('status', 'in', ['Pending','Cooking','Ready'])
+    .onSnapshot(snap => {
+      document.getElementById('statOrders').textContent = snap.size;
+      document.getElementById('statOrdersChange').textContent = `${snap.size} in progress`;
+    });
+
+  // Tables
+  db.collection(Collections.TABLES).onSnapshot(snap => {
+    const occupied = snap.docs.filter(d => d.data().status === 'Occupied').length;
+    document.getElementById('statOccupied').textContent = `${occupied}/${snap.size}`;
+    document.getElementById('statTablesChange').textContent = `${snap.size - occupied} available`;
+  });
+
+  // Menu
+  db.collection(Collections.MENU_ITEMS).onSnapshot(snap => {
+    document.getElementById('statMenuItems').textContent = snap.size;
+  });
+}
+
+window.addWidget = addWidget;
+window.removeWidget = removeWidget;
+window.saveLayout = saveLayout;
+window.resetLayout = resetLayout;
+</script>
+</body>
+</html>

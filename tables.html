@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Pro — Tables</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .floor-tab { padding: 8px 20px; border-radius:999px; border:1px solid var(--border-color); background:var(--bg-tertiary); color:var(--text-secondary); font-size:13px; font-weight:500; cursor:pointer; transition:var(--transition); }
+    .floor-tab.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+    .status-dot { width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px; }
+    .legend-item { display:flex;align-items:center;font-size:12px;color:var(--text-secondary); }
+    .table-detail-row { display:flex;gap:8px;align-items:center; }
+  </style>
+</head>
+<body>
+<div class="loading-overlay" id="pageLoader"><div style="text-align:center"><div class="spinner-amber" style="margin:0 auto 16px"></div></div></div>
+<div class="app-shell">
+  <nav class="sidebar" id="appSidebar"></nav>
+  <div class="main-area">
+    <div class="topbar" id="appTopbar"></div>
+    <div class="page-content fade-in">
+
+      <!-- Header -->
+      <div class="section-header mb-4">
+        <div>
+          <h2 class="section-title">Table Management</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin:0">Real-time floor map and table status</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-ghost" onclick="exportTables()">📥 Export</button>
+          <button class="btn-accent" onclick="showAddTableModal()">+ Add Table</button>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--success-soft)">✅</div>
+            <div style="font-family:var(--font-display);font-size:28px;font-weight:700" id="stAvail">0</div>
+            <div class="stat-label">Available</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--danger-soft)">🔴</div>
+            <div style="font-family:var(--font-display);font-size:28px;font-weight:700" id="stOcc">0</div>
+            <div class="stat-label">Occupied</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--warning-soft)">⏳</div>
+            <div style="font-family:var(--font-display);font-size:28px;font-weight:700" id="stRes">0</div>
+            <div class="stat-label">Reserved</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--info-soft)">🪑</div>
+            <div style="font-family:var(--font-display);font-size:28px;font-weight:700" id="stTotal">0</div>
+            <div class="stat-label">Total Tables</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Area Filters & Legend -->
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="areaFilters">
+          <button class="floor-tab active" data-area="All" onclick="filterArea('All',this)">All Areas</button>
+        </div>
+        <div style="display:flex;gap:16px">
+          <div class="legend-item"><span class="status-dot" style="background:var(--success)"></span>Available</div>
+          <div class="legend-item"><span class="status-dot" style="background:var(--danger)"></span>Occupied</div>
+          <div class="legend-item"><span class="status-dot" style="background:var(--warning)"></span>Reserved</div>
+        </div>
+      </div>
+
+      <!-- Floor Map -->
+      <div class="card-custom">
+        <div class="table-grid" id="tableGrid">
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="empty-state-icon">🪑</div>
+            <div>No tables yet. Add your first table!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table List View -->
+      <div class="card-custom mt-4">
+        <div class="section-header mb-3">
+          <span class="card-title">Table List</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="table-custom">
+            <thead>
+              <tr><th>#</th><th>Area</th><th>Capacity</th><th>Status</th><th>Current Order</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="tableListBody">
+              <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Table Modal -->
+<div class="modal modal-custom fade" id="tableModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="tableModalTitle">Add Table</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="tableId">
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label-custom">Table Number</label>
+            <input type="number" class="form-control-custom" id="tableNumber" min="1" placeholder="e.g. 5">
+          </div>
+          <div class="col-6">
+            <label class="form-label-custom">Capacity</label>
+            <select class="form-control-custom" id="tableCapacity">
+              <option value="2">2 Persons</option>
+              <option value="4" selected>4 Persons</option>
+              <option value="6">6 Persons</option>
+              <option value="8">8 Persons</option>
+              <option value="10">10 Persons</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label-custom">Area</label>
+            <select class="form-control-custom" id="tableArea">
+              <option value="Dining">Dining</option>
+              <option value="Pool Area">Pool Area</option>
+              <option value="VIP">VIP</option>
+              <option value="Takeaway">Takeaway</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label-custom">Status</label>
+            <select class="form-control-custom" id="tableStatus">
+              <option value="Available">Available</option>
+              <option value="Occupied">Occupied</option>
+              <option value="Reserved">Reserved</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label-custom">Notes (optional)</label>
+            <input type="text" class="form-control-custom" id="tableNotes" placeholder="e.g. Near window">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-ghost" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn-accent" onclick="saveTable()">💾 Save Table</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Table Detail Modal -->
+<div class="modal modal-custom fade" id="tableDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="detailModalTitle">Table Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="tableDetailBody">Loading…</div>
+      <div class="modal-footer" id="tableDetailFooter"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal modal-custom fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-body" style="padding:24px;text-align:center">
+        <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+        <div id="confirmMessage" style="font-size:14px;color:var(--text-secondary)">Are you sure?</div>
+        <div style="display:flex;gap:8px;margin-top:20px">
+          <button class="btn-ghost" id="confirmCancelBtn" data-bs-dismiss="modal" style="flex:1">Cancel</button>
+          <button class="btn-danger" id="confirmOkBtn" style="flex:1">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+
+let allTables = [];
+let currentArea = 'All';
+let tableModal, detailModal;
+
+requireAuth(user => {
+  document.getElementById('appSidebar').innerHTML = getSidebarHTML(user.uid);
+  document.getElementById('appTopbar').innerHTML = getTopbarHTML('Tables', 'Floor map & table management');
+  setActiveNav();
+  loadSidebarUser(user);
+  tableModal = new bootstrap.Modal(document.getElementById('tableModal'));
+  detailModal = new bootstrap.Modal(document.getElementById('tableDetailModal'));
+  subscribeToTables();
+  document.getElementById('pageLoader').style.display = 'none';
+});
+
+function subscribeToTables() {
+  db.collection(Collections.TABLES)
+    .orderBy('number')
+    .onSnapshot(snap => {
+      allTables = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      updateStats();
+      buildAreaFilters();
+      renderGrid(currentArea);
+      renderList(currentArea);
+    }, err => Toast.error(err.message));
+}
+
+function updateStats() {
+  document.getElementById('stAvail').textContent = allTables.filter(t => t.status === 'Available').length;
+  document.getElementById('stOcc').textContent   = allTables.filter(t => t.status === 'Occupied').length;
+  document.getElementById('stRes').textContent   = allTables.filter(t => t.status === 'Reserved').length;
+  document.getElementById('stTotal').textContent = allTables.length;
+}
+
+function buildAreaFilters() {
+  const areas = ['All', ...new Set(allTables.map(t => t.area))];
+  const container = document.getElementById('areaFilters');
+  container.innerHTML = areas.map(a => `
+    <button class="floor-tab ${a === currentArea ? 'active' : ''}" data-area="${a}" onclick="filterArea('${a}',this)">${a}</button>
+  `).join('');
+}
+
+function filterArea(area, btn) {
+  currentArea = area;
+  document.querySelectorAll('.floor-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderGrid(area);
+  renderList(area);
+}
+
+function filtered(area) {
+  return area === 'All' ? allTables : allTables.filter(t => t.area === area);
+}
+
+function renderGrid(area) {
+  const tables = filtered(area);
+  const container = document.getElementById('tableGrid');
+  if (!tables.length) {
+    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">🪑</div><div>No tables in this area</div></div>`;
+    return;
+  }
+  container.innerHTML = tables.map(t => `
+    <div class="floor-table-card ${t.status.toLowerCase()}" onclick="showTableDetail('${t.id}')">
+      <div class="table-number">${t.number}</div>
+      <div class="table-area">${t.area}</div>
+      <div style="margin:4px 0">${statusChip(t.status)}</div>
+      <div class="table-cap">👥 ${t.capacity}</div>
+      ${t.notes ? `<div style="font-size:10px;color:var(--text-muted);margin-top:4px">${t.notes}</div>` : ''}
+    </div>`).join('');
+}
+
+function renderList(area) {
+  const tables = filtered(area);
+  const tbody = document.getElementById('tableListBody');
+  if (!tables.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No tables found</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = tables.map(t => `
+    <tr>
+      <td style="font-weight:700;font-family:var(--font-display)">#${t.number}</td>
+      <td>${t.area}</td>
+      <td>👥 ${t.capacity}</td>
+      <td>${statusChip(t.status)}</td>
+      <td><span style="color:var(--text-muted);font-size:12px">—</span></td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost" style="padding:4px 10px;font-size:12px" onclick="editTable('${t.id}')">✏️ Edit</button>
+          <select style="background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer"
+            onchange="quickStatusChange('${t.id}',this.value)" title="Quick status change">
+            <option value="">Status</option>
+            <option value="Available">✅ Available</option>
+            <option value="Occupied">🔴 Occupied</option>
+            <option value="Reserved">⏳ Reserved</option>
+          </select>
+          <button class="btn-danger" style="padding:4px 10px;font-size:12px" onclick="deleteTable('${t.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+async function quickStatusChange(id, status) {
+  if (!status) return;
+  try {
+    await db.collection(Collections.TABLES).doc(id).update({ status });
+    await logActivity('table_status_changed', { tableId: id, status });
+    Toast.success(`Table status → ${status}`);
+  } catch (e) { Toast.error(e.message); }
+}
+
+function showAddTableModal() {
+  document.getElementById('tableModalTitle').textContent = 'Add Table';
+  document.getElementById('tableId').value = '';
+  document.getElementById('tableNumber').value = (allTables.length + 1);
+  document.getElementById('tableCapacity').value = '4';
+  document.getElementById('tableArea').value = 'Dining';
+  document.getElementById('tableStatus').value = 'Available';
+  document.getElementById('tableNotes').value = '';
+  tableModal.show();
+}
+
+function editTable(id) {
+  const t = allTables.find(t => t.id === id);
+  if (!t) return;
+  document.getElementById('tableModalTitle').textContent = `Edit Table #${t.number}`;
+  document.getElementById('tableId').value = id;
+  document.getElementById('tableNumber').value = t.number;
+  document.getElementById('tableCapacity').value = t.capacity || 4;
+  document.getElementById('tableArea').value = t.area;
+  document.getElementById('tableStatus').value = t.status;
+  document.getElementById('tableNotes').value = t.notes || '';
+  tableModal.show();
+}
+
+async function saveTable() {
+  const id       = document.getElementById('tableId').value;
+  const number   = parseInt(document.getElementById('tableNumber').value);
+  const capacity = parseInt(document.getElementById('tableCapacity').value);
+  const area     = document.getElementById('tableArea').value;
+  const status   = document.getElementById('tableStatus').value;
+  const notes    = document.getElementById('tableNotes').value.trim();
+
+  if (!number || number < 1) { Toast.warning('Please enter a valid table number.'); return; }
+
+  const data = { number, capacity, area, status, notes, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+
+  try {
+    if (id) {
+      await db.collection(Collections.TABLES).doc(id).update(data);
+      Toast.success('Table updated!');
+    } else {
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      const ref = await db.collection(Collections.TABLES).add(data);
+      await logActivity('table_added', { tableId: ref.id, number });
+      Toast.success('Table added!');
+    }
+    tableModal.hide();
+  } catch (e) { Toast.error(e.message); }
+}
+
+function showTableDetail(id) {
+  const t = allTables.find(t => t.id === id);
+  if (!t) return;
+  document.getElementById('detailModalTitle').textContent = `Table #${t.number} — ${t.area}`;
+  document.getElementById('tableDetailBody').innerHTML = `
+    <div class="row g-3">
+      <div class="col-6">
+        <div class="form-label-custom">Status</div>
+        <div>${statusChip(t.status)}</div>
+      </div>
+      <div class="col-6">
+        <div class="form-label-custom">Capacity</div>
+        <div>👥 ${t.capacity} persons</div>
+      </div>
+      <div class="col-6">
+        <div class="form-label-custom">Area</div>
+        <div style="font-weight:600">${t.area}</div>
+      </div>
+      <div class="col-6">
+        <div class="form-label-custom">Table #</div>
+        <div style="font-family:var(--font-display);font-size:24px;font-weight:700">${t.number}</div>
+      </div>
+      ${t.notes ? `<div class="col-12"><div class="form-label-custom">Notes</div><div style="color:var(--text-secondary)">${t.notes}</div></div>` : ''}
+      <div class="col-12">
+        <div class="form-label-custom">Quick Status Change</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${['Available','Occupied','Reserved'].map(s => `
+            <button class="btn-ghost" style="font-size:12px;padding:6px 14px;${t.status===s?'border-color:var(--accent);color:var(--accent)':''}"
+              onclick="quickStatusChange('${t.id}','${s}');detailModal.hide()">
+              ${s}
+            </button>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('tableDetailFooter').innerHTML = `
+    <a href="orders.html?table=${t.number}" class="btn-accent">🛒 New Order for Table ${t.number}</a>
+    <button class="btn-ghost" onclick="editTable('${t.id}');detailModal.hide()">✏️ Edit</button>
+  `;
+  detailModal.show();
+}
+
+function deleteTable(id) {
+  const t = allTables.find(t => t.id === id);
+  confirmDialog(`Delete Table #${t?.number}? This cannot be undone.`, async () => {
+    try {
+      await db.collection(Collections.TABLES).doc(id).delete();
+      await logActivity('table_deleted', { tableId: id });
+      Toast.success('Table deleted.');
+    } catch (e) { Toast.error(e.message); }
+  });
+}
+
+function exportTables() {
+  const rows = [['Number','Area','Capacity','Status','Notes']];
+  allTables.forEach(t => rows.push([t.number, t.area, t.capacity, t.status, t.notes||'']));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'tables.csv';
+  a.click();
+  Toast.success('Tables exported!');
+}
+</script>
+</body>
+</html>

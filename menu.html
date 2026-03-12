@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Pro — Menu</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="loading-overlay" id="pageLoader"><div style="text-align:center"><div class="spinner-amber" style="margin:0 auto 16px"></div></div></div>
+<div class="app-shell">
+  <nav class="sidebar" id="appSidebar"></nav>
+  <div class="main-area">
+    <div class="topbar" id="appTopbar"></div>
+    <div class="page-content fade-in">
+
+      <!-- Header -->
+      <div class="section-header mb-4">
+        <div>
+          <h2 class="section-title">Menu Management</h2>
+          <p style="color:var(--text-muted);font-size:13px;margin:0">Add, edit and organize your food items</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-ghost" onclick="showCategoryModal()">🏷️ Categories</button>
+          <button class="btn-accent" onclick="showAddItemModal()">+ Add Item</button>
+        </div>
+      </div>
+
+      <!-- Search + Filters -->
+      <div class="card-custom mb-4">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+          <input type="text" class="form-control-custom" id="menuSearch" placeholder="🔍 Search food items…" style="max-width:280px" oninput="applyFilters()">
+          <div class="cat-pills" id="catPills" style="margin-bottom:0;flex:1"></div>
+          <select class="form-control-custom" id="sortSelect" style="max-width:160px" onchange="applyFilters()">
+            <option value="name">Sort: Name</option>
+            <option value="price_asc">Price: Low–High</option>
+            <option value="price_desc">Price: High–Low</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Menu Items Grid -->
+      <div class="menu-grid" id="menuGrid">
+        <div class="empty-state" style="grid-column:1/-1">
+          <div class="empty-state-icon">🍕</div>
+          <div>No items yet. Add your first menu item!</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Item Modal -->
+<div class="modal modal-custom fade" id="itemModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="itemModalTitle">Add Menu Item</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="itemId">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label-custom">Food Image</label>
+            <div class="img-preview" id="imgPreview" onclick="document.getElementById('itemImageInput').click()">
+              <span style="font-size:32px">📷</span>
+              <span>Click to upload image</span>
+              <input type="file" id="itemImageInput" accept="image/*" style="display:none" onchange="previewImage(this)">
+            </div>
+            <input type="hidden" id="itemImageURL">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-custom">Item Name *</label>
+            <input type="text" class="form-control-custom" id="itemName" placeholder="e.g. Classic Cheeseburger">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-custom">Price *</label>
+            <input type="number" class="form-control-custom" id="itemPrice" placeholder="0.00" min="0" step="0.01">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-custom">Category *</label>
+            <select class="form-control-custom" id="itemCategory">
+              <option value="">Select category…</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-custom">Availability</label>
+            <select class="form-control-custom" id="itemAvailable">
+              <option value="true">✅ Available</option>
+              <option value="false">❌ Unavailable</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label-custom">Description</label>
+            <textarea class="form-control-custom" id="itemDesc" rows="2" placeholder="Brief description of the dish…" style="resize:vertical"></textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-custom">Preparation Time (mins)</label>
+            <input type="number" class="form-control-custom" id="itemPrepTime" placeholder="e.g. 15" min="1">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-custom">Tags (comma separated)</label>
+            <input type="text" class="form-control-custom" id="itemTags" placeholder="e.g. spicy, vegan, popular">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-ghost" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn-accent" id="saveItemBtn" onclick="saveItem()">💾 Save Item</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Category Manager Modal -->
+<div class="modal modal-custom fade" id="categoryModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Manage Categories</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <input type="text" class="form-control-custom" id="newCatName" placeholder="New category name…" style="flex:1">
+          <button class="btn-accent" onclick="addCategory()">+ Add</button>
+        </div>
+        <div id="categoryList" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Item Detail Modal -->
+<div class="modal modal-custom fade" id="itemDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body p-0" id="itemDetailBody"></div>
+      <div class="modal-footer" id="itemDetailFooter"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal modal-custom fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-body" style="padding:24px;text-align:center">
+        <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+        <div id="confirmMessage" style="font-size:14px;color:var(--text-secondary)">Are you sure?</div>
+        <div style="display:flex;gap:8px;margin-top:20px">
+          <button class="btn-ghost" id="confirmCancelBtn" data-bs-dismiss="modal" style="flex:1">Cancel</button>
+          <button class="btn-danger" id="confirmOkBtn" style="flex:1">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+
+let allItems = [];
+let allCategories = [];
+let selectedCategory = 'All';
+let itemModal, catModal, detailModal;
+let uploadTask = null;
+
+requireAuth(user => {
+  document.getElementById('appSidebar').innerHTML = getSidebarHTML(user.uid);
+  document.getElementById('appTopbar').innerHTML = getTopbarHTML('Menu', 'Manage your food catalog');
+  setActiveNav();
+  loadSidebarUser(user);
+  itemModal   = new bootstrap.Modal(document.getElementById('itemModal'));
+  catModal    = new bootstrap.Modal(document.getElementById('categoryModal'));
+  detailModal = new bootstrap.Modal(document.getElementById('itemDetailModal'));
+  subscribeData();
+  document.getElementById('pageLoader').style.display = 'none';
+});
+
+function subscribeData() {
+  // Categories
+  db.collection(Collections.CATEGORIES).orderBy('name').onSnapshot(snap => {
+    allCategories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderCatPills();
+    populateCatSelect();
+    renderCategoryList();
+  });
+  // Items
+  db.collection(Collections.MENU_ITEMS).orderBy('name').onSnapshot(snap => {
+    allItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    applyFilters();
+  }, err => Toast.error(err.message));
+}
+
+function getCatName(id) {
+  return allCategories.find(c => c.id === id)?.name || 'Uncategorized';
+}
+
+function renderCatPills() {
+  const container = document.getElementById('catPills');
+  const pills = ['All', ...allCategories.map(c => c.name)];
+  container.innerHTML = pills.map(p => `
+    <button class="cat-pill ${(p === 'All' && selectedCategory === 'All') || selectedCategory === p ? 'active' : ''}"
+      onclick="selectCat('${p}',this)">${p}</button>`).join('');
+}
+
+function selectCat(cat, btn) {
+  selectedCategory = cat;
+  document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  const search = (document.getElementById('menuSearch')?.value || '').toLowerCase();
+  const sort   = document.getElementById('sortSelect')?.value || 'name';
+
+  let items = [...allItems];
+
+  // Category filter
+  if (selectedCategory !== 'All') {
+    const catId = allCategories.find(c => c.name === selectedCategory)?.id;
+    items = items.filter(i => i.categoryId === catId);
+  }
+
+  // Search filter
+  if (search) {
+    items = items.filter(i =>
+      (i.name||'').toLowerCase().includes(search) ||
+      (i.description||'').toLowerCase().includes(search) ||
+      getCatName(i.categoryId).toLowerCase().includes(search)
+    );
+  }
+
+  // Sort
+  items.sort((a, b) => {
+    if (sort === 'price_asc')  return (a.price||0) - (b.price||0);
+    if (sort === 'price_desc') return (b.price||0) - (a.price||0);
+    return (a.name||'').localeCompare(b.name||'');
+  });
+
+  renderMenuGrid(items);
+}
+
+function renderMenuGrid(items) {
+  const container = document.getElementById('menuGrid');
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">🍽️</div><div>No items match your search</div></div>`;
+    return;
+  }
+  container.innerHTML = items.map(item => `
+    <div class="menu-item-card" onclick="showItemDetail('${item.id}')">
+      <div class="menu-item-img">
+        ${item.imageURL
+          ? `<img src="${item.imageURL}" alt="${item.name}" style="width:100%;height:100%;object-fit:cover">`
+          : getCatEmoji(getCatName(item.categoryId))}
+      </div>
+      <div class="menu-item-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="menu-item-name">${item.name}</div>
+          ${item.available === false ? `<span class="chip chip-danger" style="font-size:10px;padding:2px 6px">Off</span>` : ''}
+        </div>
+        <div class="menu-item-cat">${getCatName(item.categoryId)}</div>
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="menu-item-price">$${Number(item.price||0).toFixed(2)}</div>
+          ${item.prepTime ? `<div style="font-size:11px;color:var(--text-muted)">⏱ ${item.prepTime}m</div>` : ''}
+        </div>
+        ${item.description ? `<div class="menu-item-desc">${item.description.slice(0,60)}${item.description.length>60?'…':''}</div>` : ''}
+        ${item.tags?.length ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">
+          ${item.tags.slice(0,3).map(t=>`<span class="chip chip-muted" style="font-size:10px;padding:2px 8px">${t}</span>`).join('')}
+        </div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function getCatEmoji(catName) {
+  const map = {
+    'Burgers':'🍔','Drinks':'🥤','Desserts':'🍰','Starters':'🥗',
+    'Mains':'🍽️','Sides':'🍟','Pizza':'🍕','Sushi':'🍣',
+    'Pasta':'🍝','Salads':'🥗','Soups':'🍲'
+  };
+  for (const [k,v] of Object.entries(map)) {
+    if (catName.toLowerCase().includes(k.toLowerCase())) return v;
+  }
+  return '🍽️';
+}
+
+function populateCatSelect() {
+  const select = document.getElementById('itemCategory');
+  if (!select) return;
+  select.innerHTML = `<option value="">Select category…</option>` +
+    allCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+function showAddItemModal() {
+  document.getElementById('itemModalTitle').textContent = 'Add Menu Item';
+  document.getElementById('itemId').value = '';
+  ['itemName','itemDesc','itemTags'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('itemPrice').value = '';
+  document.getElementById('itemPrepTime').value = '';
+  document.getElementById('itemAvailable').value = 'true';
+  document.getElementById('itemCategory').value = '';
+  document.getElementById('itemImageURL').value = '';
+  document.getElementById('imgPreview').innerHTML = `<span style="font-size:32px">📷</span><span>Click to upload image</span>
+    <input type="file" id="itemImageInput" accept="image/*" style="display:none" onchange="previewImage(this)">`;
+  populateCatSelect();
+  itemModal.show();
+}
+
+function previewImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('imgPreview').innerHTML =
+      `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">
+       <input type="file" id="itemImageInput" accept="image/*" style="display:none" onchange="previewImage(this)">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveItem() {
+  const id        = document.getElementById('itemId').value;
+  const name      = document.getElementById('itemName').value.trim();
+  const price     = parseFloat(document.getElementById('itemPrice').value);
+  const catId     = document.getElementById('itemCategory').value;
+  const desc      = document.getElementById('itemDesc').value.trim();
+  const available = document.getElementById('itemAvailable').value === 'true';
+  const prepTime  = parseInt(document.getElementById('itemPrepTime').value) || null;
+  const tags      = document.getElementById('itemTags').value.split(',').map(t=>t.trim()).filter(Boolean);
+
+  if (!name)  { Toast.warning('Please enter a name.'); return; }
+  if (isNaN(price) || price < 0) { Toast.warning('Please enter a valid price.'); return; }
+  if (!catId) { Toast.warning('Please select a category.'); return; }
+
+  const btn = document.getElementById('saveItemBtn');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+
+  try {
+    let imageURL = document.getElementById('itemImageURL').value || '';
+
+    // Upload image if a file was selected
+    const fileInput = document.getElementById('itemImageInput');
+    if (fileInput?.files[0]) {
+      const file = fileInput.files[0];
+      const ref  = storage.ref(`menu_images/${Date.now()}_${file.name}`);
+      await ref.put(file);
+      imageURL = await ref.getDownloadURL();
+    }
+
+    const data = { name, price, categoryId: catId, description: desc, available, imageURL, prepTime, tags, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+
+    if (id) {
+      await db.collection(Collections.MENU_ITEMS).doc(id).update(data);
+      Toast.success('Item updated!');
+    } else {
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      const ref = await db.collection(Collections.MENU_ITEMS).add(data);
+      await logActivity('menu_item_added', { itemId: ref.id, name });
+      Toast.success('Item added!');
+    }
+    itemModal.hide();
+  } catch (e) {
+    Toast.error('Save failed: ' + e.message);
+  } finally {
+    btn.textContent = '💾 Save Item'; btn.disabled = false;
+  }
+}
+
+function showItemDetail(id) {
+  const item = allItems.find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('itemDetailBody').innerHTML = `
+    <div style="height:200px;overflow:hidden;border-radius:var(--radius-lg) var(--radius-lg) 0 0">
+      ${item.imageURL
+        ? `<img src="${item.imageURL}" style="width:100%;height:100%;object-fit:cover">`
+        : `<div style="width:100%;height:100%;background:var(--bg-tertiary);display:flex;align-items:center;justify-content:center;font-size:64px">${getCatEmoji(getCatName(item.categoryId))}</div>`}
+    </div>
+    <div style="padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <h4 style="font-family:var(--font-display);margin:0">${item.name}</h4>
+        <span style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--accent)">$${Number(item.price||0).toFixed(2)}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <span class="chip chip-info">${getCatName(item.categoryId)}</span>
+        ${item.available === false ? `<span class="chip chip-danger">Unavailable</span>` : `<span class="chip chip-success">Available</span>`}
+        ${item.prepTime ? `<span class="chip chip-muted">⏱ ${item.prepTime} min</span>` : ''}
+      </div>
+      ${item.description ? `<p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:12px">${item.description}</p>` : ''}
+      ${item.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${item.tags.map(t=>`<span class="chip chip-muted">${t}</span>`).join('')}
+      </div>` : ''}
+    </div>`;
+  document.getElementById('itemDetailFooter').innerHTML = `
+    <button class="btn-ghost" onclick="editMenuItem('${item.id}')">✏️ Edit</button>
+    <button class="btn-danger" onclick="deleteItem('${item.id}')">🗑️ Delete</button>
+  `;
+  detailModal.show();
+}
+
+function editMenuItem(id) {
+  const item = allItems.find(i => i.id === id);
+  if (!item) return;
+  detailModal.hide();
+  setTimeout(() => {
+    document.getElementById('itemModalTitle').textContent = `Edit: ${item.name}`;
+    document.getElementById('itemId').value        = id;
+    document.getElementById('itemName').value      = item.name;
+    document.getElementById('itemPrice').value     = item.price;
+    document.getElementById('itemDesc').value      = item.description || '';
+    document.getElementById('itemAvailable').value = item.available === false ? 'false' : 'true';
+    document.getElementById('itemPrepTime').value  = item.prepTime || '';
+    document.getElementById('itemTags').value      = (item.tags||[]).join(', ');
+    document.getElementById('itemImageURL').value  = item.imageURL || '';
+    populateCatSelect();
+    setTimeout(() => document.getElementById('itemCategory').value = item.categoryId || '', 100);
+    if (item.imageURL) {
+      document.getElementById('imgPreview').innerHTML =
+        `<img src="${item.imageURL}" style="width:100%;height:100%;object-fit:cover">
+         <input type="file" id="itemImageInput" accept="image/*" style="display:none" onchange="previewImage(this)">`;
+    } else {
+      document.getElementById('imgPreview').innerHTML =
+        `<span style="font-size:32px">📷</span><span>Click to upload</span>
+         <input type="file" id="itemImageInput" accept="image/*" style="display:none" onchange="previewImage(this)">`;
+    }
+    itemModal.show();
+  }, 300);
+}
+
+function deleteItem(id) {
+  const item = allItems.find(i => i.id === id);
+  detailModal.hide();
+  setTimeout(() => {
+    confirmDialog(`Delete "${item?.name}"? This cannot be undone.`, async () => {
+      try {
+        await db.collection(Collections.MENU_ITEMS).doc(id).delete();
+        await logActivity('menu_item_deleted', { itemId: id });
+        Toast.success('Item deleted.');
+      } catch (e) { Toast.error(e.message); }
+    });
+  }, 300);
+}
+
+// ─── Categories ───────────────────────────────────────────
+function showCategoryModal() { catModal.show(); }
+
+function renderCategoryList() {
+  const container = document.getElementById('categoryList');
+  if (!container) return;
+  if (!allCategories.length) {
+    container.innerHTML = `<div style="color:var(--text-muted);font-size:13px">No categories yet</div>`;
+    return;
+  }
+  container.innerHTML = allCategories.map(c => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-tertiary);border-radius:var(--radius-sm)">
+      <span style="flex:1;font-size:13.5px">${c.name}</span>
+      <span style="font-size:12px;color:var(--text-muted)">${allItems.filter(i=>i.categoryId===c.id).length} items</span>
+      <button class="btn-ghost" style="padding:3px 10px;font-size:11px" onclick="deleteCategory('${c.id}','${c.name}')">🗑️</button>
+    </div>`).join('');
+}
+
+async function addCategory() {
+  const name = document.getElementById('newCatName').value.trim();
+  if (!name) { Toast.warning('Enter a category name.'); return; }
+  try {
+    await db.collection(Collections.CATEGORIES).add({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    document.getElementById('newCatName').value = '';
+    Toast.success(`Category "${name}" added!`);
+  } catch (e) { Toast.error(e.message); }
+}
+
+function deleteCategory(id, name) {
+  const inUse = allItems.filter(i => i.categoryId === id).length;
+  const msg = inUse > 0
+    ? `Delete "${name}"? ${inUse} item(s) will lose their category.`
+    : `Delete category "${name}"?`;
+  confirmDialog(msg, async () => {
+    try {
+      await db.collection(Collections.CATEGORIES).doc(id).delete();
+      Toast.success('Category deleted.');
+    } catch (e) { Toast.error(e.message); }
+  });
+}
+</script>
+</body>
+</html>

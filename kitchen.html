@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Pro — Kitchen</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .kitchen-col { display: flex; flex-direction: column; gap: 0; }
+    .kitchen-col-header {
+      padding: 12px 16px;
+      border-bottom: 2px solid;
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .col-pending  { border-color: var(--warning); background: rgba(245,158,11,0.06); }
+    .col-cooking  { border-color: var(--info);    background: rgba(59,130,246,0.06); }
+    .col-ready    { border-color: var(--success); background: rgba(16,185,129,0.06); }
+    .kitchen-col-header.col-pending { border-bottom-color: var(--warning); }
+    .kitchen-col-header.col-cooking { border-bottom-color: var(--info);    }
+    .kitchen-col-header.col-ready   { border-bottom-color: var(--success); }
+
+    .kd-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      margin: 12px;
+      padding: 16px;
+      transition: var(--transition);
+      animation: fadeIn 0.3s ease;
+    }
+    .kd-card:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+    .kd-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .kd-table { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+    .kd-order-id { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+    .kd-time { font-size: 11px; color: var(--text-muted); }
+    .kd-items { list-style: none; padding: 0; margin: 8px 0; }
+    .kd-items li { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--border-subtle); }
+    .kd-items li:last-child { border: none; }
+    .kd-qty { font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
+    .kd-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .timer-display {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--bg-tertiary);
+    }
+    .timer-urgent { color: var(--danger); background: var(--danger-soft); }
+    .timer-warn   { color: var(--warning); background: var(--warning-soft); }
+    .timer-ok     { color: var(--success); background: var(--success-soft); }
+    .kitchen-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; height: calc(100vh - var(--topbar-height) - 130px); }
+    @media(max-width:768px) { .kitchen-grid { grid-template-columns: 1fr; height: auto; } }
+    .col-body { overflow-y: auto; flex: 1; }
+    .col-wrapper { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
+  </style>
+</head>
+<body>
+<div class="loading-overlay" id="pageLoader"><div style="text-align:center"><div class="spinner-amber" style="margin:0 auto 16px"></div></div></div>
+<div class="app-shell">
+  <nav class="sidebar" id="appSidebar"></nav>
+  <div class="main-area">
+    <div class="topbar" id="appTopbar"></div>
+    <div class="page-content fade-in" style="padding-bottom:0">
+
+      <!-- Stats Bar -->
+      <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="chip chip-warning" style="font-size:13px;padding:8px 16px">
+          ⏳ Pending: <strong id="kCountPending">0</strong>
+        </div>
+        <div class="chip chip-info" style="font-size:13px;padding:8px 16px">
+          🔥 Cooking: <strong id="kCountCooking">0</strong>
+        </div>
+        <div class="chip chip-success" style="font-size:13px;padding:8px 16px">
+          ✅ Ready: <strong id="kCountReady">0</strong>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+          <span class="pulse-dot green"></span>
+          <span style="font-size:12px;color:var(--text-muted)">Live updates</span>
+        </div>
+      </div>
+
+      <!-- Kitchen Columns -->
+      <div class="kitchen-grid">
+
+        <!-- Pending -->
+        <div class="col-wrapper">
+          <div class="kitchen-col-header col-pending">
+            <span>⏳ Pending</span>
+            <span class="chip chip-warning" id="badgePending">0</span>
+          </div>
+          <div class="col-body" id="colPending">
+            <div class="empty-state" style="padding:32px">
+              <div class="empty-state-icon">⏳</div>
+              <div>No pending orders</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cooking -->
+        <div class="col-wrapper">
+          <div class="kitchen-col-header col-cooking">
+            <span>🔥 Cooking</span>
+            <span class="chip chip-info" id="badgeCooking">0</span>
+          </div>
+          <div class="col-body" id="colCooking">
+            <div class="empty-state" style="padding:32px">
+              <div class="empty-state-icon">👨‍🍳</div>
+              <div>Nothing cooking yet</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ready -->
+        <div class="col-wrapper">
+          <div class="kitchen-col-header col-ready">
+            <span>✅ Ready</span>
+            <span class="chip chip-success" id="badgeReady">0</span>
+          </div>
+          <div class="col-body" id="colReady">
+            <div class="empty-state" style="padding:32px">
+              <div class="empty-state-icon">🍽️</div>
+              <div>No orders ready yet</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+
+const timers = {};
+let allOrders = [];
+
+requireAuth(user => {
+  document.getElementById('appSidebar').innerHTML = getSidebarHTML(user.uid);
+  document.getElementById('appTopbar').innerHTML = getTopbarHTML('Kitchen', 'Kitchen display system — real-time');
+  setActiveNav();
+  loadSidebarUser(user);
+  subscribeKitchenOrders();
+  startTimerTick();
+  document.getElementById('pageLoader').style.display = 'none';
+});
+
+function subscribeKitchenOrders() {
+  db.collection(Collections.ORDERS)
+    .where('status', 'in', ['Pending', 'Cooking', 'Ready'])
+    .orderBy('createdAt', 'asc')
+    .onSnapshot(snap => {
+      allOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderKitchen();
+    }, err => Toast.error(err.message));
+}
+
+function renderKitchen() {
+  const pending = allOrders.filter(o => o.status === 'Pending');
+  const cooking = allOrders.filter(o => o.status === 'Cooking');
+  const ready   = allOrders.filter(o => o.status === 'Ready');
+
+  // Update counts
+  ['Pending','Cooking','Ready'].forEach(s => {
+    const arr = { Pending: pending, Cooking: cooking, Ready: ready }[s];
+    document.getElementById(`kCount${s}`).textContent = arr.length;
+    document.getElementById(`badge${s}`).textContent  = arr.length;
+  });
+
+  renderCol('colPending', pending,  'pending');
+  renderCol('colCooking', cooking,  'cooking');
+  renderCol('colReady',   ready,    'ready');
+}
+
+function renderCol(containerId, orders, status) {
+  const container = document.getElementById(containerId);
+  const emptyMsgs = {
+    pending: ['⏳','No pending orders'],
+    cooking: ['👨‍🍳','Nothing cooking yet'],
+    ready:   ['🍽️','No orders ready yet'],
+  };
+
+  if (!orders.length) {
+    container.innerHTML = `<div class="empty-state" style="padding:32px">
+      <div class="empty-state-icon">${emptyMsgs[status][0]}</div>
+      <div>${emptyMsgs[status][1]}</div>
+    </div>`;
+    return;
+  }
+
+  const nextStatus = { pending: 'Cooking', cooking: 'Ready', ready: 'Served' };
+  const nextLabel  = { pending: '🔥 Start Cooking', cooking: '✅ Mark Ready', ready: '🍽️ Mark Served' };
+
+  container.innerHTML = orders.map(order => {
+    const elapsedMs = order.createdAt?.toDate ? (Date.now() - order.createdAt.toDate().getTime()) : 0;
+    const elapsedMin = Math.floor(elapsedMs / 60000);
+    const timerClass = elapsedMin > 20 ? 'timer-urgent' : elapsedMin > 10 ? 'timer-warn' : 'timer-ok';
+
+    return `
+      <div class="kd-card" id="order_${order.id}">
+        <div class="kd-card-header">
+          <div>
+            <div class="kd-table">
+              ${order.type === 'Table Order' ? `Table ${order.tableNumber||'?'}` : order.type}
+            </div>
+            <div class="kd-order-id">${fmt.orderId(order.id)}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="timer-display ${timerClass}" id="timer_${order.id}">
+              ${formatElapsed(elapsedMs)}
+            </div>
+            <div class="kd-time">${fmt.time(order.createdAt)}</div>
+          </div>
+        </div>
+        <ul class="kd-items">
+          ${(order.items||[]).map(item => `
+            <li>
+              <span>${item.name}</span>
+              <span class="kd-qty">×${item.qty}</span>
+            </li>`).join('')}
+        </ul>
+        ${order.notes ? `<div style="font-size:12px;color:var(--text-muted);padding:8px;background:var(--bg-tertiary);border-radius:6px;margin-bottom:8px">📝 ${order.notes}</div>` : ''}
+        <div class="kd-actions">
+          <button class="btn-accent" style="flex:1;justify-content:center;font-size:12px;padding:8px"
+            onclick="advanceOrder('${order.id}','${nextStatus[status]}')">
+            ${nextLabel[status]}
+          </button>
+          <button class="btn-danger" style="padding:8px 12px;font-size:12px"
+            onclick="cancelOrder('${order.id}')">Cancel</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Register timers
+  orders.forEach(o => {
+    timers[o.id] = { createdAt: o.createdAt };
+  });
+}
+
+async function advanceOrder(orderId, newStatus) {
+  try {
+    await db.collection(Collections.ORDERS).doc(orderId).update({
+      status: newStatus,
+      [`${newStatus.toLowerCase()}At`]: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await logActivity('order_advanced', { orderId, status: newStatus });
+    Toast.success(`Order → ${newStatus}`);
+  } catch (e) { Toast.error(e.message); }
+}
+
+async function cancelOrder(orderId) {
+  if (!confirm('Cancel this order?')) return;
+  try {
+    await db.collection(Collections.ORDERS).doc(orderId).update({ status: 'Cancelled' });
+    Toast.info('Order cancelled.');
+  } catch (e) { Toast.error(e.message); }
+}
+
+function formatElapsed(ms) {
+  if (!ms) return '0:00';
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  if (h > 0) return `${h}h ${m%60}m`;
+  return `${m}:${String(s%60).padStart(2,'0')}`;
+}
+
+function startTimerTick() {
+  setInterval(() => {
+    allOrders.forEach(o => {
+      const el = document.getElementById(`timer_${o.id}`);
+      if (!el || !o.createdAt) return;
+      const ms = Date.now() - (o.createdAt.toDate ? o.createdAt.toDate().getTime() : 0);
+      const min = Math.floor(ms / 60000);
+      el.textContent = formatElapsed(ms);
+      el.className = `timer-display ${min > 20 ? 'timer-urgent' : min > 10 ? 'timer-warn' : 'timer-ok'}`;
+    });
+  }, 1000);
+}
+</script>
+</body>
+</html>
