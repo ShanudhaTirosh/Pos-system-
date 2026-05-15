@@ -30,12 +30,12 @@ export default function Dashboard() {
   }, []);
 
   const stats = useMemo(() => {
-    const revenue = orders.filter(o => o.status === 'Paid').reduce((acc, o) => acc + (o.total || 0), 0);
+    const revenue = orders.filter(o => ['Paid', 'Served'].includes(o.status)).reduce((acc, o) => acc + (o.total || 0), 0);
     const activeOrders = orders.filter(o => !['Paid', 'Cancelled'].includes(o.status)).length;
     const occupiedTables = tables.filter(t => t.status === 'Occupied').length;
     
     return [
-      { label: "Today's Revenue", value: fmt.currency(revenue), icon: <DollarSign />, color: 'var(--accent)', trend: '+12.5%' },
+      { label: "Today's Revenue", value: fmt.currency(revenue), icon: <DollarSign />, color: 'var(--accent)', trend: 'Accrued' },
       { label: "Active Orders", value: activeOrders, icon: <ShoppingBag />, color: '#3b82f6', trend: 'Live' },
       { label: "Occupied Tables", value: `${occupiedTables}/${tables.length}`, icon: <Users />, color: '#ef4444', trend: 'Floor' },
       { label: "Menu Items", value: menuCount, icon: <TrendingUp />, color: '#10b981', trend: 'Active' },
@@ -136,4 +136,3 @@ export default function Dashboard() {
   );
 }
 
-import { UtensilsCrossed } from 'lucide-react';

@@ -79,86 +79,155 @@ export default function AuthPage() {
     <div className="auth-page">
       <div className="auth-bg-grid"></div>
       <div className="auth-bg-glow"></div>
+      <div className="auth-bg-glow glow-2"></div>
 
-      <div className="d-flex align-items-center gap-5 position-relative" style={{ zIndex: 1, maxWidth: 900, width: '100%', padding: 20 }}>
+      <div className="d-flex align-items-center gap-5 position-relative" style={{ zIndex: 1, maxWidth: 1000, width: '100%', padding: 24 }}>
         
         {/* Left Panel: Info (Desktop only) */}
         <div className="d-none d-lg-block" style={{ flex: 1 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2, marginBottom: 12 }}>
-            Complete<br />Restaurant<br /><span style={{ color: 'var(--accent)' }}>Command Center</span>
+          <div className="brand-logo mb-4" style={{ width: 64, height: 64, fontSize: 32 }}>🍽️</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 48, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1, marginBottom: 16 }}>
+            The Elite<br />Restaurant<br /><span style={{ color: 'var(--accent)' }}>Management Suite</span>
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>
-            Manage tables, orders, kitchen, billing and staff from a single unified platform.
+          <p style={{ color: 'var(--text-secondary)', fontSize: 16, marginBottom: 32, maxWidth: 400 }}>
+            Elevate your hospitality business with real-time analytics, seamless POS operations, and intelligent kitchen workflows.
           </p>
-          <ul className="feature-list" style={{ listStyle: 'none', padding: 0 }}>
-            {['🪑 Real-time Table Management', '🛒 Live Order Tracking', '👨‍🍳 Kitchen Display System', '💳 Instant Billing & Receipts', '📊 Revenue Analytics', '🎨 Customizable Dashboard'].map((f, i) => (
-              <li key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', fontSize: 13.5, color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {f}
-              </li>
+          <div className="row g-3">
+            {[
+              { icon: '🪑', text: 'Real-time Tables' },
+              { icon: '🛒', text: 'Live POS' },
+              { icon: '👨‍🍳', text: 'Kitchen Display' },
+              { icon: '💳', text: 'Fast Billing' }
+            ].map((f, i) => (
+              <div key={i} className="col-6">
+                <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--text-secondary)' }}>
+                  <span className="me-2">{f.icon}</span> {f.text}
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
 
         {/* Auth Card */}
-        <div className="auth-card" style={{ flex: '0 0 420px' }}>
-          <div className="auth-logo">🍽️</div>
-          <h1 className="auth-title">Restaurant Pro</h1>
-          <p className="auth-subtitle">Production-ready management system</p>
+        <div className="auth-card card-custom" style={{ flex: '0 0 440px', padding: 40 }}>
+          <div className="auth-header text-center mb-4">
+            <h1 className="auth-title mb-1">Welcome Back</h1>
+            <p className="auth-subtitle text-muted small">Sign in to your command center</p>
+          </div>
 
           {/* Tabs */}
-          <div style={{ display: 'flex', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-color)', marginBottom: 24 }}>
-            <button className={`tab-btn ${tab === 'login' ? 'active' : ''}`} onClick={() => setTab('login')} style={{ flex: 1, padding: 10, border: 'none', background: tab === 'login' ? 'var(--accent)' : 'var(--bg-tertiary)', color: tab === 'login' ? '#000' : 'var(--text-secondary)', fontWeight: tab === 'login' ? 600 : 500 }}>Sign In</button>
-            <button className={`tab-btn ${tab === 'register' ? 'active' : ''}`} onClick={() => setTab('register')} style={{ flex: 1, padding: 10, border: 'none', background: tab === 'register' ? 'var(--accent)' : 'var(--bg-tertiary)', color: tab === 'register' ? '#000' : 'var(--text-secondary)', fontWeight: tab === 'register' ? 600 : 500 }}>Register</button>
+          <div className="auth-tabs-custom mb-4">
+            <button className={`tab-btn-custom ${tab === 'login' ? 'active' : ''}`} onClick={() => setTab('login')}>Sign In</button>
+            <button className={`tab-btn-custom ${tab === 'register' ? 'active' : ''}`} onClick={() => setTab('register')}>Create Account</button>
           </div>
 
           {tab === 'login' ? (
-            <form onSubmit={handleLogin}>
+            <form onSubmit={handleLogin} className="fade-in">
               <div className="mb-3">
-                <label className="form-label-custom">Email Address</label>
-                <input type="email" className="form-control-custom" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@restaurant.com" />
+                <label className="form-label-custom">Work Email</label>
+                <input type="email" className="form-control-custom" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@restaurant.com" required />
               </div>
               <div className="mb-4">
-                <label className="form-label-custom">Password</label>
-                <input type="password" className="form-control-custom" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
+                <label className="form-label-custom">Access Key</label>
+                <input type="password" className="form-control-custom" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
               </div>
-              <button type="submit" className="btn-accent w-100 justify-content-center" disabled={loading}>
-                {loading ? 'Signing in…' : 'Sign In →'}
+              <button type="submit" className="btn-accent w-100 py-3" disabled={loading}>
+                {loading ? 'Authenticating…' : 'Initialize Session'}
               </button>
             </form>
           ) : (
-            <form onSubmit={handleRegister}>
+            <form onSubmit={handleRegister} className="fade-in">
               <div className="mb-3">
                 <label className="form-label-custom">Full Name</label>
-                <input type="text" className="form-control-custom" value={name} onChange={e => setName(e.target.value)} placeholder="John Smith" />
+                <input type="text" className="form-control-custom" value={name} onChange={e => setName(e.target.value)} placeholder="John Smith" required />
               </div>
               <div className="mb-3">
-                <label className="form-label-custom">Email Address</label>
-                <input type="email" className="form-control-custom" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@restaurant.com" />
+                <label className="form-label-custom">Work Email</label>
+                <input type="email" className="form-control-custom" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@restaurant.com" required />
               </div>
               <div className="mb-3">
-                <label className="form-label-custom">Password</label>
-                <input type="password" className="form-control-custom" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min. 6 characters" />
+                <label className="form-label-custom">Access Key</label>
+                <input type="password" className="form-control-custom" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min. 6 characters" required />
               </div>
               <div className="mb-4">
-                <label className="form-label-custom">Role</label>
+                <label className="form-label-custom">Organizational Role</label>
                 <select className="form-control-custom" value={role} onChange={e => setRole(e.target.value)}>
-                  <option value="Admin">Admin</option>
-                  <option value="Manager">Manager</option>
-                  <option value="Staff">Staff</option>
-                  <option value="Kitchen">Kitchen</option>
+                  <option value="Admin">System Administrator</option>
+                  <option value="Manager">Floor Manager</option>
+                  <option value="Staff">Service Staff</option>
+                  <option value="Kitchen">Kitchen Executive</option>
                 </select>
               </div>
-              <button type="submit" className="btn-accent w-100 justify-content-center" disabled={loading}>
-                {loading ? 'Creating account…' : 'Create Account →'}
+              <button type="submit" className="btn-accent w-100 py-3" disabled={loading}>
+                {loading ? 'Registering…' : 'Establish Account'}
               </button>
             </form>
           )}
 
-          <p style={{ fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'center', marginTop: 20 }}>
-            By continuing you agree to our Terms of Service & Privacy Policy
-          </p>
+          <div className="mt-4 pt-3 border-top border-secondary-subtle text-center">
+            <p className="text-muted" style={{ fontSize: 11, letterSpacing: 0.5 }}>SECURE ENTERPRISE ENCRYPTION ACTIVE</p>
+          </div>
         </div>
       </div>
+
+      <style>{`
+        .auth-page {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #05070A;
+          position: relative;
+          overflow: hidden;
+        }
+        .auth-bg-grid {
+          position: absolute;
+          inset: 0;
+          background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.03) 1px, transparent 0);
+          background-size: 40px 40px;
+        }
+        .auth-bg-glow {
+          position: absolute;
+          width: 600px; height: 600px;
+          background: var(--accent);
+          filter: blur(150px);
+          opacity: 0.1;
+          top: -200px; right: -200px;
+          border-radius: 50%;
+        }
+        .glow-2 { bottom: -200px; left: -200px; background: var(--info); }
+        
+        .auth-card {
+          background: rgba(15, 18, 24, 0.6) !important;
+          backdrop-filter: blur(30px) !important;
+          border: 1px solid rgba(255,255,255,0.1) !important;
+        }
+        
+        .auth-tabs-custom {
+          display: flex;
+          background: rgba(0,0,0,0.2);
+          padding: 4px;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.05);
+        }
+        .tab-btn-custom {
+          flex: 1;
+          border: none;
+          background: transparent;
+          color: var(--text-muted);
+          padding: 10px;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          transition: var(--transition);
+          border-radius: 8px;
+        }
+        .tab-btn-custom.active {
+          background: var(--accent);
+          color: #000;
+          box-shadow: 0 4px 15px var(--accent-glow);
+        }
+      `}</style>
     </div>
   );
 }
